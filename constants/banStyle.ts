@@ -1,3 +1,4 @@
+import type { ExpressionSpecification } from 'maplibre-gl';
 import { BanLevel, BanType } from '../data/fireBans';
 
 /** Fill/stroke colors for each ban jurisdiction level. */
@@ -21,3 +22,13 @@ export const TYPE_LABEL: Record<BanType, string> = {
   'all-fires':    'All Fires Prohibited',
   'category2-3':  'Category 2 & 3 Burning Ban',
 };
+
+/** Builds a map expression that picks a BAN_COLORS entry from a feature's `level` property. */
+export const levelColor = (kind: 'fill' | 'stroke'): ExpressionSpecification => [
+  'match',
+  ['get', 'level'],
+  'provincial', BAN_COLORS.provincial[kind],
+  'regional-district', BAN_COLORS['regional-district'][kind],
+  'municipal', BAN_COLORS.municipal[kind],
+  'rgba(0,0,0,0)',
+];
