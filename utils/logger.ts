@@ -1,23 +1,7 @@
-import { File, Paths } from 'expo-file-system';
+/** Logs a message and any extra values to the console. */
+const log = (message: string, ...args: unknown[]) => console.log(message, ...args);
 
-const logFile = new File(Paths.document, 'debug.log');
+/** Logs an error message and any extra values to the console. */
+const error = (message: string, ...args: unknown[]) => console.error(message, ...args);
 
-// Print the path once so Claude can find the file
-console.log('[logger] log file:', logFile.uri.replace('file://', ''));
-
-async function append(line: string) {
-  const entry = `${new Date().toISOString()} ${line}\n`;
-  const existing = logFile.exists ? await logFile.text() : '';
-  logFile.write(existing + entry);
-}
-
-export const logger = {
-  log: (message: string, ...args: unknown[]) => {
-    console.log(message, ...args);
-    append([message, ...args.map(a => JSON.stringify(a))].join(' ')).catch(() => {});
-  },
-  error: (message: string, ...args: unknown[]) => {
-    console.error(message, ...args);
-    append(`ERROR ${[message, ...args.map(a => JSON.stringify(a))].join(' ')}`).catch(() => {});
-  },
-};
+export const logger = { log, error };

@@ -1,4 +1,4 @@
-import { LatLng } from '../hooks/useFireZones';
+import { LatLng } from '../types/geo';
 
 export type BanLevel = 'provincial' | 'regional-district' | 'municipal';
 

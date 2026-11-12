@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import { LatLng } from './useFireZones';
 import { FireBan, EXAMPLE_FIRE_BANS } from '../data/fireBans';
+import { LatLng } from '../types/geo';
 import { pointInPolygon } from '../utils/pointInPolygon';
 
 const LEVEL_ORDER: Record<FireBan['level'], number> = {
