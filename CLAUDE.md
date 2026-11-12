@@ -23,18 +23,18 @@ bun install         # install dependencies
 
 - `index.ts` — entry point, registers the root component via `registerRootComponent`
 - `App.tsx` — root component; renders a full-screen `MapView` with fire zone `Polygon` overlays and zone name `Marker` labels
-- `hooks/useFireZones.ts` — fetches BC fire zone boundaries from the BC government WFS API, parses GeoJSON (handling both `Polygon` and `MultiPolygon`), and computes each zone's centroid for label placement
-- `utils/logger.ts` — thin wrapper around `console.log`/`console.error` that also appends to a file via `expo-file-system`
+- `hooks/useFireZones.ts` — parses the bundled BC fire zone GeoJSON (handling both `Polygon` and `MultiPolygon`), and computes each zone's centroid for label placement
+- `utils/logger.ts` — thin wrapper around `console.log`/`console.error`, shared by all platforms
 - `app.json` — Expo configuration (name, slug, icons, splash, platform-specific settings)
 - `assets/` — static assets (icons, splash screens)
 
 ## Data
 
-BC fire zone boundaries are fetched at runtime from BC's public WFS service:
+Fire zone boundaries are bundled in `data/fireZones.json` (32 zones, simplified to 3%). Regenerate with:
 ```
-https://openmaps.gov.bc.ca/geo/pub/ows?service=WFS&...&typeName=pub:WHSE_LEGAL_ADMIN_BOUNDARIES.DRP_MOF_FIRE_ZONES_SP&srsName=EPSG:4326
+bunx mapshaper zones.json -filter-fields MOF_FIRE_ZONE_ID,MOF_FIRE_ZONE_NAME,MOF_FIRE_CENTRE_NAME -simplify 3% keep-shapes -o data/fireZones.json format=geojson precision=0.0001
 ```
-Returns 32 zones as GeoJSON. `srsName=EPSG:4326` is required — without it the server returns BC Albers projected coordinates (metres) which are invalid lat/lng values.
+where `zones.json` is the WFS response from `https://openmaps.gov.bc.ca/geo/pub/ows?service=WFS&...&typeName=pub:WHSE_LEGAL_ADMIN_BOUNDARIES.DRP_MOF_FIRE_ZONES_SP&srsName=EPSG:4326`. `srsName=EPSG:4326` is required — without it the server returns BC Albers projected coordinates (metres) which are invalid lat/lng values.
 
 ## Expo Config
 
@@ -42,13 +42,7 @@ App is configured in `app.json` (not `app.config.ts`). Platform-specific setting
 
 ## Reading Logs
 
-The app writes logs to a file via `utils/logger.ts`. On startup, the Metro console prints the exact path:
-
-```
-[logger] log file: /path/to/app/Documents/debug.log
-```
-
-Use the Read tool on that path to inspect logs. All calls to `logger.log` / `logger.error` write to both the console and that file.
+All logging goes through `utils/logger.ts`, which writes to `console` only. On native, output appears in the Metro terminal running `bun run start`; on web, it appears in the browser console. To read logs, run the dev server in the background with Bash and read its output, or ask the user to paste the terminal output.
 
 ## Style
 
