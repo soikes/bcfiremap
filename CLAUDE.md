@@ -28,25 +28,21 @@ bun install         # install dependencies
 - `App.tsx` — root component; owns the selected-location state and composes the map layers and `BanPanel`
 - `components/BaseMap.tsx` / `BaseMap.web.tsx` — platform adapters for the map and its press/click event; shared props in `BaseMap.types.ts`
 - `components/MapSource.tsx` / `MapSource.web.tsx` — platform adapters for a GeoJSON source; `MapLayer.tsx` / `MapLayer.web.tsx` re-export each library's `Layer`
-- `components/FireZoneOutlines.tsx`, `ZoneLabels.tsx`, `BanPolygons.tsx`, `SelectedPin.tsx` — map layers, written once for both platforms on top of `MapSource` and `MapLayer`
+- `components/FireZones.tsx`, `BanPolygons.tsx`, `SelectedPin.tsx` — map layers, written once for both platforms on top of `MapSource` and `MapLayer`
 - `components/BanPanel.tsx`, `BanCard.tsx` — results panel (centred and width-limited on wide screens)
-- `hooks/useFireZones.ts` — parses the bundled BC fire zone GeoJSON (handling both `Polygon` and `MultiPolygon`), and computes each zone's centroid for label placement
 - `hooks/useFireBans.ts` — returns the bans whose polygon contains the selected location, using `utils/pointInPolygon.ts`
-- `utils/geojson.ts` — converts zones, bans and points to GeoJSON for the map sources
+- `utils/geojson.ts` — converts bans and points to GeoJSON for the map sources
+- `types/geo.ts` — shared `LatLng` type
 - `utils/logger.ts` — thin wrapper around `console.log`/`console.error`, shared by all platforms
-- `constants/` — map style/camera (`map.ts`) and ban colours and labels (`banStyle.ts`)
-- `data/` — bundled fire zones (`fireZones.json`) and example fire bans (`fireBans.ts`)
+- `constants/` — map style/camera, fire zones URL and the `SHOW_FIRE_ZONES` flag (`map.ts`), ban colours and labels (`banStyle.ts`)
+- `data/` — example fire bans (`fireBans.ts`)
 - `css.d.ts` — lets TypeScript accept the `maplibre-gl` CSS import
 - `app.json` — Expo configuration (name, slug, icons, splash, platform-specific settings)
 - `assets/` — static assets (icons, splash screens)
 
 ## Data
 
-Fire zone boundaries are bundled in `data/fireZones.json` (32 zones, simplified to 3%). Regenerate with:
-```
-bunx mapshaper zones.json -filter-fields MOF_FIRE_ZONE_ID,MOF_FIRE_ZONE_NAME,MOF_FIRE_CENTRE_NAME -simplify 3% keep-shapes -o data/fireZones.json format=geojson precision=0.0001
-```
-where `zones.json` is the WFS response from `https://openmaps.gov.bc.ca/geo/pub/ows?service=WFS&...&typeName=pub:WHSE_LEGAL_ADMIN_BOUNDARIES.DRP_MOF_FIRE_ZONES_SP&srsName=EPSG:4326`. `srsName=EPSG:4326` is required — without it the server returns BC Albers projected coordinates (metres) which are invalid lat/lng values.
+Fire zone boundaries are not stored in the repo. `components/FireZones.tsx` gives the map a URL (`FIRE_ZONES_URL` in `constants/map.ts`) to the BC government's ArcGIS feature service, and the map fetches it at runtime. The query asks the server to simplify the geometry (`maxAllowableOffset`), which keeps the response around 280 KB. The service allows cross-origin reads, unlike BC's WFS server. The ArcGIS copy has 31 zones (no Mid Island Fire Zone). The layer is currently off (`SHOW_FIRE_ZONES = false`) pending licensing clarification.
 
 ## Deploy
 
