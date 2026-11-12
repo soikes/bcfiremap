@@ -16,6 +16,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 bun run start       # start Expo dev server
 bun run web         # start in browser
 bun run build:web   # static web export to dist/
+bun run test        # Jest (jest-expo) + React Native Testing Library; never plain `bun test`, which runs Bun's own runner
 bun run ios         # build and run the iOS dev client (currently blocked, see Native status)
 bun run android     # build and run the Android dev client
 bun install         # install dependencies
