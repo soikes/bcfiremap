@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { levelColor } from '../constants/banStyle';
-import { FireBan } from '../data/fireBans';
+import { FireBan } from '../types/ban';
 import { bansToFeatureCollection } from '../utils/geojson';
 import { logger } from '../utils/logger';
 import { MapLayer } from './MapLayer';

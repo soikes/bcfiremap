@@ -1,24 +1,23 @@
 import { useMemo } from 'react';
-import { FireBan, EXAMPLE_FIRE_BANS } from '../data/fireBans';
+import { BanLevel, FireBan } from '../types/ban';
 import { LatLng } from '../types/geo';
-import { pointInPolygon } from '../utils/pointInPolygon';
+import { pointInGeometry } from '../utils/geometry';
+import { logger } from '../utils/logger';
 
-const LEVEL_ORDER: Record<FireBan['level'], number> = {
+const LEVEL_ORDER: Record<BanLevel, number> = {
   provincial: 0,
   'regional-district': 1,
   municipal: 2,
 };
 
-/**
- * Returns all fire bans whose jurisdiction polygon contains `location`,
- * sorted from broadest to most local (provincial → regional → municipal).
- * Returns an empty array when `location` is null.
- */
-export function useFireBans(location: LatLng | null): FireBan[] {
+/** Returns the bans whose area contains `location`, broadest first; empty when `location` is null. */
+export function useFireBans(bans: FireBan[], location: LatLng | null): FireBan[] {
   return useMemo(() => {
     if (!location) return [];
-    return EXAMPLE_FIRE_BANS
-      .filter(ban => pointInPolygon(location, ban.polygon))
+    const hits = bans
+      .filter(ban => pointInGeometry(location, ban.geometry))
       .sort((a, b) => LEVEL_ORDER[a.level] - LEVEL_ORDER[b.level]);
-  }, [location]);
+    logger.log('[useFireBans] bans at', location, hits.map(ban => ban.id));
+    return hits;
+  }, [bans, location]);
 }

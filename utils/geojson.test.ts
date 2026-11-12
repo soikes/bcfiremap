@@ -2,22 +2,10 @@ import { makeBan } from '../test/fixtures';
 import { bansToFeatureCollection, pointToFeatureCollection } from './geojson';
 
 describe('bansToFeatureCollection', () => {
-  it('closes an open ring by repeating the first position', () => {
-    const [feature] = bansToFeatureCollection([makeBan()]).features;
-    const [ring] = feature.geometry.coordinates;
-    expect(ring).toHaveLength(5);
-    expect(ring[4]).toEqual(ring[0]);
-  });
-
-  it('leaves an already closed ring alone', () => {
-    const open = makeBan().polygon;
-    const [feature] = bansToFeatureCollection([makeBan({ polygon: [...open, open[0]] })]).features;
-    expect(feature.geometry.coordinates[0]).toHaveLength(5);
-  });
-
-  it('writes positions as [longitude, latitude]', () => {
-    const [feature] = bansToFeatureCollection([makeBan()]).features;
-    expect(feature.geometry.coordinates[0][0]).toEqual([-120, 49]);
+  it('makes one feature per ban that keeps the ban geometry', () => {
+    const ban = makeBan();
+    const [feature] = bansToFeatureCollection([ban]).features;
+    expect(feature.geometry).toBe(ban.geometry);
   });
 
   it('carries id, level and region as properties', () => {
@@ -26,6 +14,15 @@ describe('bansToFeatureCollection', () => {
     ]).features;
     expect(feature.id).toBe('rd-1');
     expect(feature.properties).toEqual({ id: 'rd-1', level: 'regional-district', region: 'Some District' });
+  });
+
+  it('keeps MultiPolygon geometries', () => {
+    const geometry = {
+      type: 'MultiPolygon' as const,
+      coordinates: [[[[0, 0], [1, 0], [1, 1], [0, 0]]], [[[5, 5], [6, 5], [6, 6], [5, 5]]]],
+    };
+    const [feature] = bansToFeatureCollection([makeBan({ geometry })]).features;
+    expect(feature.geometry.type).toBe('MultiPolygon');
   });
 
   it('returns an empty collection for no bans', () => {

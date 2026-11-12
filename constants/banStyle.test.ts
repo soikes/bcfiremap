@@ -1,4 +1,4 @@
-import { EXAMPLE_FIRE_BANS } from '../data/fireBans';
+import { EXAMPLE_BANS } from '../collectors/example';
 import { BAN_COLORS, LEVEL_LABEL, TYPE_LABEL, levelColor } from './banStyle';
 
 describe('levelColor', () => {
@@ -19,7 +19,13 @@ describe('ban style tables', () => {
     expect(Object.keys(LEVEL_LABEL).sort()).toEqual(Object.keys(BAN_COLORS).sort());
   });
 
+  it('has a label for every ban type, including the fallback', () => {
+    expect(Object.keys(TYPE_LABEL).sort()).toEqual(
+      ['all-fires', 'campfire', 'category2-3', 'open-burning', 'other'],
+    );
+  });
+
   it('has a label for every type used by the example bans', () => {
-    EXAMPLE_FIRE_BANS.forEach(ban => expect(TYPE_LABEL[ban.type]).toBeDefined());
+    EXAMPLE_BANS.forEach(ban => expect(TYPE_LABEL[ban.type]).toBeDefined());
   });
 });

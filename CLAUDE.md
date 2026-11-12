@@ -25,17 +25,20 @@ bun install         # install dependencies
 ## Architecture
 
 - `index.ts` — entry point, registers the root component via `registerRootComponent`
-- `App.tsx` — root component; owns the selected-location state and composes the map layers and `BanPanel`
+- `App.tsx` — root component; provides the react-query client, owns the selected-location state and composes the map layers and `BanPanel`
 - `components/BaseMap.tsx` / `BaseMap.web.tsx` — platform adapters for the map and its press/click event; shared props in `BaseMap.types.ts`
 - `components/MapSource.tsx` / `MapSource.web.tsx` — platform adapters for a GeoJSON source; `MapLayer.tsx` / `MapLayer.web.tsx` re-export each library's `Layer`
 - `components/FireZones.tsx`, `BanPolygons.tsx`, `SelectedPin.tsx` — map layers, written once for both platforms on top of `MapSource` and `MapLayer`
-- `components/BanPanel.tsx`, `BanCard.tsx` — results panel (centred and width-limited on wide screens)
-- `hooks/useFireBans.ts` — returns the bans whose polygon contains the selected location, using `utils/pointInPolygon.ts`
+- `components/BanPanel.tsx`, `BanCard.tsx` — results panel (centred and width-limited on wide screens); lists the bans at the tapped point plus each source's status, coverage and attribution
+- `collectors/` — one `Collector` per data source (`types.ts`): `collect()` fetches and normalizes to `FireBan[]`. `provincial.ts` is the BC Wildfire Service ArcGIS feed, `example.ts` is fake dev data, `index.ts` lists the active collectors, `fetchJson.ts` adds timeout and abort handling, `classifyBan.ts` maps free text to a `BanType`
+- `hooks/useBans.ts` — runs every collector on its own schedule (react-query), merges the bans and reports per-source status, keeping the last good data if a refresh fails
+- `hooks/useFireBans.ts` — returns the bans whose area contains the selected location, broadest first, using `utils/geometry.ts` (Polygon/MultiPolygon with holes) and `utils/pointInPolygon.ts`
+- `lib/queryClient.ts` — shared react-query client (retries with backoff)
 - `utils/geojson.ts` — converts bans and points to GeoJSON for the map sources
-- `types/geo.ts` — shared `LatLng` type
+- `types/` — shared types: `LatLng` (`geo.ts`) and `FireBan` (`ban.ts`)
+- `env.d.ts` — declares `process.env` for `EXPO_PUBLIC_*` variables
 - `utils/logger.ts` — thin wrapper around `console.log`/`console.error`, shared by all platforms
 - `constants/` — map style/camera, fire zones URL and the `SHOW_FIRE_ZONES` flag (`map.ts`), ban colours and labels (`banStyle.ts`)
-- `data/` — example fire bans (`fireBans.ts`)
 - `css.d.ts` — lets TypeScript accept the `maplibre-gl` CSS import
 - `app.json` — Expo configuration (name, slug, icons, splash, platform-specific settings)
 - `assets/` — static assets (icons, splash screens)
@@ -43,6 +46,12 @@ bun install         # install dependencies
 ## Data
 
 Fire zone boundaries are not stored in the repo. `components/FireZones.tsx` gives the map a URL (`FIRE_ZONES_URL` in `constants/map.ts`) to the BC government's ArcGIS feature service, and the map fetches it at runtime. The query asks the server to simplify the geometry (`maxAllowableOffset`), which keeps the response around 280 KB. The service allows cross-origin reads, unlike BC's WFS server. The ArcGIS copy has 31 zones (no Mid Island Fire Zone). The layer is currently off (`SHOW_FIRE_ZONES = false`) pending licensing clarification.
+
+### Fire bans
+
+Bans come from collectors that run in the client at runtime (a backend that runs the same collectors is a possible later step). `collectors/provincial.ts` reads the BC Wildfire Service "Bans and Prohibition Areas" ArcGIS layer (Open Government Licence – British Columbia, so the attribution is shown in the panel). It excludes municipal and regional district bans, and the panel says so. The layer was empty (off-season) when the collector was written, so the free-text `TYPE`, `CATEGORY` and `ACCESS_PROHIBITION_DESCRIPTION` values are unverified: the card shows the source's own text and `classifyBan` falls back to `other`. Geometry is simplified server-side (`maxAllowableOffset=0.001`, about 100 m), so lookups near a boundary are approximate.
+
+To add a source: write a `Collector` in `collectors/` that returns `FireBan[]` (reuse `fetchJson`, validate the response, skip bad features instead of throwing), then add it to `COLLECTORS` in `collectors/index.ts`. Set `EXPO_PUBLIC_EXAMPLE_BANS=true` when starting the app to add the fake example collector; never set it in production builds.
 
 ## Deploy
 
