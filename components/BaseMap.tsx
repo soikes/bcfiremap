@@ -1,4 +1,4 @@
-import { Camera, Map as MapLibreMap, PressEvent } from '@maplibre/maplibre-react-native';
+import { Camera, Map as MapLibreMap, MapProps, PressEvent } from '@maplibre/maplibre-react-native';
 import { NativeSyntheticEvent, StyleSheet } from 'react-native';
 import { BASEMAP_STYLE, INITIAL_VIEW } from '../constants/map';
 import { BaseMapProps } from './BaseMap.types';
@@ -11,7 +11,7 @@ export function BaseMap({ onPress, children }: BaseMapProps) {
   }
 
   return (
-    <MapLibreMap style={styles.map} mapStyle={BASEMAP_STYLE} onPress={handlePress}>
+    <MapLibreMap style={styles.map} mapStyle={BASEMAP_STYLE as MapProps['mapStyle']} onPress={handlePress}>
       <Camera
         initialViewState={{
           center: [INITIAL_VIEW.longitude, INITIAL_VIEW.latitude],

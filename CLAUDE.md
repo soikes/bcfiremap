@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **Expo 58** — web is the primary target; native (iOS/Android) is a roadmap item
 - **React Native 0.88** with **react-native-web**
-- **MapLibre** on both platforms — `react-map-gl/maplibre` + `maplibre-gl` (pinned 5.24.1) on web, `@maplibre/maplibre-react-native` on native; OpenFreeMap basemap
+- **MapLibre** on both platforms — `react-map-gl/maplibre` + `maplibre-gl` (pinned 5.24.1) on web, `@maplibre/maplibre-react-native` on native; OSM Bright basemap style on OpenFreeMap tiles
 - **Bun** — package manager and runtime (use `bun` for all installs and script execution, never `npm` or `yarn`)
 - **TypeScript** — strict mode enabled
 
@@ -47,6 +47,10 @@ bun install         # install dependencies
 
 Fire zone boundaries are not stored in the repo. `components/FireZones.tsx` gives the map a URL (`FIRE_ZONES_URL` in `constants/map.ts`) to the BC government's ArcGIS feature service, and the map fetches it at runtime. The query asks the server to simplify the geometry (`maxAllowableOffset`), which keeps the response around 280 KB. The service allows cross-origin reads, unlike BC's WFS server. The ArcGIS copy has 31 zones (no Mid Island Fire Zone). The layer is currently off (`SHOW_FIRE_ZONES = false`) pending licensing clarification.
 
+### Basemap
+
+The basemap style is [OSM Bright](https://github.com/openmaptiles/osm-bright-gl-style), bundled unchanged in `assets/map-style/osm-bright.json` with its licence (`osm-bright-LICENSE.md`: BSD-3 code, CC BY 4.0 design, so credit is required; it is in the source attribution in `constants/map.ts`). The original points at MapTiler and needs an API key, so `constants/map.ts` overrides three fields: the vector tile source and the font glyphs now come from OpenFreeMap (same OpenMapTiles schema, and the same Noto Sans fonts), and the source attribution is replaced with the combined credit. The sprite (icons) is still loaded from `openmaptiles.github.io`. Layers added by this app (zone labels) must use a font OpenFreeMap serves: Noto Sans Regular, Bold or Italic.
+
 ### Fire bans
 
 Bans come from collectors that run in the client at runtime (a backend that runs the same collectors is a possible later step). `collectors/provincial.ts` reads the BC Wildfire Service "Bans and Prohibition Areas" ArcGIS layer (Open Government Licence – British Columbia, so the attribution is shown in the panel). It excludes municipal and regional district bans, and the panel says so. The layer was empty (off-season) when the collector was written, so the free-text `TYPE`, `CATEGORY` and `ACCESS_PROHIBITION_DESCRIPTION` values are unverified: the card shows the source's own text and `classifyBan` falls back to `other`. Geometry is simplified server-side (`maxAllowableOffset=0.001`, about 100 m), so lookups near a boundary are approximate.
@@ -55,7 +59,7 @@ To add a source: write a `Collector` in `collectors/` that returns `FireBan[]` (
 
 ## Deploy
 
-The web build is a static export served by nginx. `Dockerfile` builds it with `bun run build:web` and copies `dist/` into a non-root nginx image (`nginx.conf` for rate limiting and server settings, `security-headers.conf` for response headers incl. the CSP, port 8080); `fly.toml` configures Fly.io (`fly deploy`). The CSP allows only `self` plus `https://tiles.openfreemap.org`; changing the basemap host means updating it.
+The web build is a static export served by nginx. `Dockerfile` builds it with `bun run build:web` and copies `dist/` into a non-root nginx image (`nginx.conf` for rate limiting and server settings, `security-headers.conf` for response headers incl. the CSP, port 8080); `fly.toml` configures Fly.io (`fly deploy`). The CSP allows only `self` plus `https://tiles.openfreemap.org` (tiles, fonts), `https://openmaptiles.github.io` (map icons) and `https://services6.arcgis.com` (BC Wildfire Service data); adding or changing a data or basemap host means updating it.
 
 ## Native status
 

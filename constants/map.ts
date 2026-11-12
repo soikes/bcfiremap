@@ -1,4 +1,23 @@
-export const BASEMAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
+import type { StyleSpecification } from 'maplibre-gl';
+import osmBright from '../assets/map-style/osm-bright.json';
+
+const OPENFREEMAP = 'https://tiles.openfreemap.org';
+
+const BASEMAP_ATTRIBUTION =
+  '<a href="https://openfreemap.org" target="_blank">OpenFreeMap</a> ' +
+  '<a href="https://www.openmaptiles.org/" target="_blank">&copy; OpenMapTiles</a> ' +
+  'Data from <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> | ' +
+  'Style: <a href="https://github.com/openmaptiles/osm-bright-gl-style" target="_blank">OSM Bright</a> ' +
+  '&copy; MapTiler &amp; OpenMapTiles contributors ' +
+  '(<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank">CC BY 4.0</a>)';
+
+export const BASEMAP_STYLE = {
+  ...osmBright,
+  sources: {
+    openmaptiles: { type: 'vector', url: `${OPENFREEMAP}/planet`, attribution: BASEMAP_ATTRIBUTION },
+  },
+  glyphs: `${OPENFREEMAP}/fonts/{fontstack}/{range}.pbf`,
+} as unknown as StyleSpecification;
 
 export const INITIAL_VIEW = { latitude: 54, longitude: -125, zoom: 4.5 };
 
