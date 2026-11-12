@@ -49,7 +49,7 @@ where `zones.json` is the WFS response from `https://openmaps.gov.bc.ca/geo/pub/
 
 ## Deploy
 
-The web build is a static export served by nginx. `Dockerfile` builds it with `bun run build:web` and copies `dist/` into an nginx image (`nginx.conf`, port 8080); `fly.toml` configures Fly.io (`fly deploy`).
+The web build is a static export served by nginx. `Dockerfile` builds it with `bun run build:web` and copies `dist/` into a non-root nginx image (`nginx.conf` for rate limiting and server settings, `security-headers.conf` for response headers incl. the CSP, port 8080); `fly.toml` configures Fly.io (`fly deploy`). The CSP allows only `self` plus `https://tiles.openfreemap.org`; changing the basemap host means updating it.
 
 ## Native status
 
