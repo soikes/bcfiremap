@@ -1,4 +1,4 @@
-import { EXAMPLE_BANS } from '../collectors/example';
+import { SAMPLE_BANS } from '../test/fixtures';
 import { BAN_COLORS, LEVEL_LABEL, TYPE_LABEL, levelColor } from './banStyle';
 
 describe('levelColor', () => {
@@ -25,7 +25,7 @@ describe('ban style tables', () => {
     );
   });
 
-  it('has a label for every type used by the example bans', () => {
-    EXAMPLE_BANS.forEach(ban => expect(TYPE_LABEL[ban.type]).toBeDefined());
+  it('has a label for every type used by the sample bans', () => {
+    SAMPLE_BANS.forEach(ban => expect(TYPE_LABEL[ban.type]).toBeDefined());
   });
 });
