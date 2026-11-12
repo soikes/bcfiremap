@@ -1,9 +1,8 @@
-import { exampleCollector } from './example';
 import { provincialCollector } from './provincial';
 import { Collector } from './types';
 
-const INCLUDE_EXAMPLES = process.env.EXPO_PUBLIC_EXAMPLE_BANS === 'true';
+export const COLLECTORS: Collector[] = [provincialCollector];
 
-export const COLLECTORS: Collector[] = INCLUDE_EXAMPLES
-  ? [provincialCollector, exampleCollector]
-  : [provincialCollector];
+if (process.env.EXPO_PUBLIC_EXAMPLE_BANS === 'true') {
+  COLLECTORS.push((require('./example') as typeof import('./example')).exampleCollector);
+}

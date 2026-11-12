@@ -22,6 +22,7 @@
     "expo-splash-screen": "~58.0.14",
     "expo-status-bar": "~58.0.5",
     "maplibre-gl": "5.24.1",
+    "polygon-clipping": "^0.15.7",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-map-gl": "^8.1.3",

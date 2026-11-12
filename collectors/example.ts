@@ -1,4 +1,5 @@
 import type { Geometry, MultiPolygon, Polygon, Position } from 'geojson';
+import polygonClipping, { Polygon as ClipPolygon } from 'polygon-clipping';
 import { FIRE_ZONES_URL } from '../constants/map';
 import { FireBan } from '../types/ban';
 import { logger } from '../utils/logger';
@@ -16,14 +17,19 @@ const rect = (south: number, west: number, north: number, east: number): Polygon
   coordinates: [[[west, south], [east, south], [east, north], [west, north], [west, south]]],
 });
 
-/** Collects the polygons of the given zone features into one MultiPolygon, or null if there are none. */
-const combine = (zones: ZoneFeature[]): MultiPolygon | null => {
+/** Merges zone features into one outline: their union, keeping only outer boundaries. Null if there are no zones. */
+const merge = (zones: ZoneFeature[]): Polygon | MultiPolygon | null => {
   const parts: Position[][][] = zones.flatMap(({ geometry }) => {
     if (geometry?.type === 'Polygon') return [geometry.coordinates];
     if (geometry?.type === 'MultiPolygon') return geometry.coordinates;
     return [];
   });
-  return parts.length > 0 ? { type: 'MultiPolygon', coordinates: parts } : null;
+  if (parts.length === 0) return null;
+  const [first, ...rest] = parts as ClipPolygon[];
+  const outlines = polygonClipping.union(first, ...rest).map(([outer]) => [outer]);
+  return outlines.length === 1
+    ? { type: 'Polygon', coordinates: outlines[0] }
+    : { type: 'MultiPolygon', coordinates: outlines };
 };
 
 const LOCAL_BANS: FireBan[] = [
@@ -69,14 +75,14 @@ const LOCAL_BANS: FireBan[] = [
   },
 ];
 
-/** Builds example bans from real fire zone polygons (fire-centre-wide and single-zone) plus hand-drawn local ones. */
+/** Builds example bans from real fire zone polygons (one fire-centre-wide outline and one single zone) plus hand-drawn local ones. */
 export function buildExampleBans(zones: unknown): FireBan[] {
   const features = (zones as { features?: unknown } | null)?.features;
   if (!Array.isArray(features)) throw new Error('Example collector got no fire zone features');
   const zoneFeatures = features as ZoneFeature[];
 
-  const centreGeometry = combine(zoneFeatures.filter(z => z.properties?.FIRE_CENTRE === 'Kamloops Fire Centre'));
-  const zoneGeometry = combine(zoneFeatures.filter(z => z.properties?.FIRE_ZONE === 'Penticton Fire Zone'));
+  const centreGeometry = merge(zoneFeatures.filter(z => z.properties?.FIRE_CENTRE === 'Kamloops Fire Centre'));
+  const zoneGeometry = merge(zoneFeatures.filter(z => z.properties?.FIRE_ZONE === 'Penticton Fire Zone'));
 
   const provincial: FireBan[] = [];
   if (centreGeometry) {
