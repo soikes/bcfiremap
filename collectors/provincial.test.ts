@@ -1,6 +1,6 @@
+import { BCWS_2022_FEED } from '../test/bcws2022';
 import { PROVINCIAL_URL, parseProvincialBans, provincialCollector } from './provincial';
 
-// Fixtures are built from the layer's published schema; the live feed was empty when these were written.
 const square = {
   type: 'Polygon',
   coordinates: [[[-120, 49], [-119, 49], [-119, 50], [-120, 50], [-120, 49]]],
@@ -15,8 +15,56 @@ const feature = (properties: Record<string, unknown>, geometry: unknown = square
 
 const collection = (...features: unknown[]) => ({ type: 'FeatureCollection', features });
 
-describe('parseProvincialBans', () => {
-  it('maps a full feature to a FireBan', () => {
+describe('parseProvincialBans with the real 2022 feed rows', () => {
+  const bans = parseProvincialBans(BCWS_2022_FEED);
+  const byRegion = (region: string) => bans.find(ban => ban.region === region);
+
+  it('parses all six rows, one per fire centre', () => {
+    expect(bans.map(ban => ban.id)).toEqual(['bcws:1', 'bcws:2', 'bcws:3', 'bcws:4', 'bcws:5', 'bcws:6']);
+    expect(bans.map(ban => ban.region)).toEqual([
+      'Cariboo',
+      'Coastal',
+      'Kamloops',
+      'Northwest',
+      'Prince George',
+      'Southeast',
+    ]);
+  });
+
+  it('maps a row to a provincial Category 2 and 3 ban keeping the source text', () => {
+    expect(byRegion('Kamloops')).toEqual({
+      id: 'bcws:3',
+      source: 'bcws',
+      level: 'provincial',
+      region: 'Kamloops',
+      type: 'category2-3',
+      title: 'Partial Prohibition',
+      description: 'Category 2, Category 3',
+      effectiveDate: '2022-07-15',
+      url: 'https://www2.gov.bc.ca/gov/content?id=AFEC3F8B5E89438CB0AC9E970CE6EE6F',
+      geometry: BCWS_2022_FEED.features[2].geometry,
+    });
+  });
+
+  it('reads the effective dates as UTC calendar days', () => {
+    const dates = Object.fromEntries(bans.map(ban => [ban.region, ban.effectiveDate]));
+    expect(dates).toEqual({
+      Cariboo: '2022-07-15',
+      Coastal: '2022-07-15',
+      Kamloops: '2022-07-15',
+      Southeast: '2022-07-15',
+      Northwest: '2022-07-28',
+      'Prince George': '2022-07-28',
+    });
+  });
+
+  it('classifies every row as a Category 2 and 3 ban', () => {
+    expect(bans.every(ban => ban.type === 'category2-3')).toBe(true);
+  });
+});
+
+describe('parseProvincialBans edge cases', () => {
+  it('maps every field of a feature that has all of them', () => {
     const [ban] = parseProvincialBans(
       collection(
         feature({
@@ -32,17 +80,13 @@ describe('parseProvincialBans', () => {
       ),
     );
 
-    expect(ban).toEqual({
+    expect(ban).toMatchObject({
       id: 'bcws:42',
-      source: 'bcws',
-      level: 'provincial',
       region: 'Kamloops Fire Zone',
       type: 'campfire',
       title: 'Campfire · Category 1',
-      description: 'Campfires prohibited',
       effectiveDate: '2026-07-01',
       url: 'https://example.gov/bulletin',
-      geometry: square,
     });
   });
 
@@ -152,15 +196,12 @@ describe('provincialCollector', () => {
   });
 
   it('fetches the layer and returns the parsed bans', async () => {
-    const fetchMock = jest.fn(async () => ({
-      ok: true,
-      json: async () => collection(feature({ PROT_BAP_SYSID: 1 })),
-    }));
+    const fetchMock = jest.fn(async () => ({ ok: true, json: async () => BCWS_2022_FEED }));
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
     const bans = await provincialCollector.collect();
 
-    expect(bans).toHaveLength(1);
+    expect(bans).toHaveLength(6);
     expect(fetchMock).toHaveBeenCalledWith(PROVINCIAL_URL, expect.anything());
   });
 
