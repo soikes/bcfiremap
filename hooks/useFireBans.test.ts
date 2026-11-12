@@ -1,5 +1,5 @@
 import { renderHook } from '@testing-library/react-native';
-import { LatLng } from './useFireZones';
+import { LatLng } from '../types/geo';
 import { useFireBans } from './useFireBans';
 
 const KAMLOOPS = { latitude: 50.67, longitude: -120.33 };

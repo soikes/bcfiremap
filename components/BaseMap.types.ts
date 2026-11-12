@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { LatLng } from '../hooks/useFireZones';
+import { LatLng } from '../types/geo';
 
 export interface BaseMapProps {
   onPress: (coordinate: LatLng) => void;

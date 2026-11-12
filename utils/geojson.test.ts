@@ -1,43 +1,5 @@
-import { makeBan, makeZone } from '../test/fixtures';
-import {
-  bansToFeatureCollection,
-  pointToFeatureCollection,
-  zoneLabelsToFeatureCollection,
-  zonesToFeatureCollection,
-} from './geojson';
-
-describe('zonesToFeatureCollection', () => {
-  const [feature] = zonesToFeatureCollection([makeZone()]).features;
-
-  it('makes one MultiPolygon feature per zone with its id and properties', () => {
-    expect(feature.id).toBe('zone-0');
-    expect(feature.geometry.type).toBe('MultiPolygon');
-    expect(feature.properties).toEqual({ name: 'Test Zone', centre: 'Test Centre' });
-  });
-
-  it('writes positions as [longitude, latitude]', () => {
-    expect(feature.geometry.coordinates[0][0][0]).toEqual([-120, 49]);
-  });
-
-  it('puts the outer ring first and keeps holes after it', () => {
-    const [polygon] = feature.geometry.coordinates;
-    expect(polygon).toHaveLength(2);
-    expect(polygon[0]).toHaveLength(3);
-    expect(polygon[1][0]).toEqual([-119.9, 49.1]);
-  });
-
-  it('returns an empty collection for no zones', () => {
-    expect(zonesToFeatureCollection([]).features).toEqual([]);
-  });
-});
-
-describe('zoneLabelsToFeatureCollection', () => {
-  it('makes a point at the zone centroid carrying the zone name', () => {
-    const [feature] = zoneLabelsToFeatureCollection([makeZone()]).features;
-    expect(feature.geometry).toEqual({ type: 'Point', coordinates: [-119.6, 49.3] });
-    expect(feature.properties).toEqual({ name: 'Test Zone' });
-  });
-});
+import { makeBan } from '../test/fixtures';
+import { bansToFeatureCollection, pointToFeatureCollection } from './geojson';
 
 describe('bansToFeatureCollection', () => {
   it('closes an open ring by repeating the first position', () => {
@@ -53,12 +15,21 @@ describe('bansToFeatureCollection', () => {
     expect(feature.geometry.coordinates[0]).toHaveLength(5);
   });
 
+  it('writes positions as [longitude, latitude]', () => {
+    const [feature] = bansToFeatureCollection([makeBan()]).features;
+    expect(feature.geometry.coordinates[0][0]).toEqual([-120, 49]);
+  });
+
   it('carries id, level and region as properties', () => {
     const [feature] = bansToFeatureCollection([
       makeBan({ id: 'rd-1', level: 'regional-district', region: 'Some District' }),
     ]).features;
     expect(feature.id).toBe('rd-1');
     expect(feature.properties).toEqual({ id: 'rd-1', level: 'regional-district', region: 'Some District' });
+  });
+
+  it('returns an empty collection for no bans', () => {
+    expect(bansToFeatureCollection([]).features).toEqual([]);
   });
 });
 

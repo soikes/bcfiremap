@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { LatLng } from '../hooks/useFireZones';
+import { LatLng } from '../types/geo';
 import { pointToFeatureCollection } from '../utils/geojson';
 import { MapLayer } from './MapLayer';
 import { MapSource } from './MapSource';
