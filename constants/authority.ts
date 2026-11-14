@@ -35,3 +35,10 @@ export const VICTORIA_AUTHORITY: Authority = {
   kind: 'municipality',
   level: 'municipal',
 };
+
+export const OAK_BAY_AUTHORITY: Authority = {
+  id: 'oak-bay',
+  name: 'District of Oak Bay',
+  kind: 'municipality',
+  level: 'municipal',
+};
