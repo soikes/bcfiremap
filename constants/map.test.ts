@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 import osmBright from '../assets/map-style/osm-bright.json';
-import { BASEMAP_STYLE } from './map';
+import { BASEMAP_STYLE, OPENFREEMAP_FONTS } from './map';
 
 const style = BASEMAP_STYLE as unknown as {
   sources: Record<string, { type: string; url: string; attribution: string }>;
@@ -9,13 +9,12 @@ const style = BASEMAP_STYLE as unknown as {
   layers: { id: string; 'source-layer'?: string; layout?: { 'text-font'?: string[] } }[];
 };
 
-// Vector layers and font stacks that OpenFreeMap serves, checked against https://tiles.openfreemap.org when the style was adopted.
+// Vector layers that OpenFreeMap serves, checked against https://tiles.openfreemap.org when the style was adopted.
 const OPENFREEMAP_LAYERS = [
   'aerodrome_label', 'aeroway', 'boundary', 'building', 'housenumber', 'landcover', 'landuse',
   'mountain_peak', 'park', 'place', 'poi', 'transportation', 'transportation_name', 'water',
   'water_name', 'waterway',
 ];
-const OPENFREEMAP_FONTS = ['Noto Sans Regular', 'Noto Sans Bold', 'Noto Sans Italic'];
 
 describe('BASEMAP_STYLE', () => {
   it('reads tiles and fonts from OpenFreeMap, with no MapTiler key placeholders left', () => {

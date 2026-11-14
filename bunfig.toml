@@ -2,4 +2,4 @@
 env = "PUBLIC_*"
 
 [test]
-preload = ["./test/happydom.ts", "./test/testingLibrary.ts"]
+preload = ["./test/happydom.ts", "./test/testingLibrary.ts", "./test/fakeMapLibre.tsx"]
