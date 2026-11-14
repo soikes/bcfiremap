@@ -21,6 +21,7 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 3,
+      // Exponential backoff: wait 1 s before the first retry and double it each time (2 s, 4 s, ...), never more than 30 s.
       retryDelay: attempt => Math.min(1000 * 2 ** attempt, 30000),
     },
   },
