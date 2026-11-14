@@ -111,6 +111,17 @@ describe('BanPanel sources', () => {
     expect(screen.getByText(/BC Wildfire Service: update failed, showing data from/)).toBeInTheDocument();
   });
 
+  it('says a source with no data is being retried', () => {
+    renderPanel([], [makeSource({ name: 'BC Wildfire Service', status: 'pending', hasData: false, retrying: true })]);
+    expect(screen.getByText("BC Wildfire Service: couldn't load, retrying…")).toBeInTheDocument();
+    expect(screen.getByText('Loading ban data…')).toBeInTheDocument();
+  });
+
+  it('says a refresh is being retried while older data is shown', () => {
+    renderPanel([makeBan()], [makeSource({ name: 'BC Wildfire Service', retrying: true })]);
+    expect(screen.getByText(/BC Wildfire Service: update failed, retrying… \(showing data from/)).toBeInTheDocument();
+  });
+
   it('shows a source with no data as unavailable', () => {
     renderPanel([], [makeSource({ name: 'BC Wildfire Service', status: 'error', hasData: false })]);
     expect(screen.getByText('BC Wildfire Service: unavailable')).toBeInTheDocument();

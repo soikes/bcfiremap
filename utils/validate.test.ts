@@ -44,6 +44,7 @@ describe('isSourceStatus', () => {
     ['a missing name', { ...makeSource(), name: undefined }],
     ['an unknown status', { ...makeSource(), status: 'loading' }],
     ['a string hasData', { ...makeSource(), hasData: 'yes' }],
+    ['a missing retrying flag', { ...makeSource(), retrying: undefined }],
     ['a string updatedAt', { ...makeSource(), updatedAt: '12:00' }],
   ])('rejects %s', (_case, value) => {
     expect(isSourceStatus(value)).toBe(false);

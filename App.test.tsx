@@ -55,10 +55,20 @@ const route = (replies: Record<string, Reply>) => {
   globalThis.fetch = mock(async (url: string) => (replies[url] ?? unreachable)()) as unknown as typeof fetch;
 };
 
-/** Renders the whole app with a query client that doesn't retry. */
-const renderApp = () => {
-  render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />);
+/** Renders the whole app with a query client that doesn't retry unless told to. */
+const renderApp = (retry: { retry: number; retryDelay: number } | { retry: false } = { retry: false }) => {
+  render(<App client={new QueryClient({ defaultOptions: { queries: retry } })} />);
   return userEvent.setup();
+};
+
+/** A reply that fails the first `failures` times and then answers with `body`. */
+const failsThenAnswers = (failures: number, body: unknown): Reply => {
+  let calls = 0;
+  return async () => {
+    calls += 1;
+    if (calls <= failures) throw new TypeError('Failed to fetch');
+    return { ok: true, status: 200, json: async () => body };
+  };
 };
 
 afterEach(() => {
@@ -161,5 +171,54 @@ describe('App while sources are loading', () => {
 
     expect(screen.getByText('Loading ban data…')).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+});
+
+describe('App while a source is retried', () => {
+  it('shows a retrying banner, then removes it and shows the bans when the retry succeeds', async () => {
+    route({ [PROVINCIAL_URL]: failsThenAnswers(1, BCWS_2022_FEED), [SERVER_BANS_URL]: SERVER_EMPTY });
+    const user = renderApp({ retry: 1, retryDelay: 300 });
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "⚠ Couldn't load ban data from BC Wildfire Service. Retrying…",
+    );
+
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+    await user.click(screen.getByText('tap inside'));
+    expect(screen.getByText('6 fire bans in effect')).toBeInTheDocument();
+  });
+
+  it('says the source is being retried in the panel while the retry is pending', async () => {
+    route({ [PROVINCIAL_URL]: unreachable, [SERVER_BANS_URL]: SERVER_EMPTY });
+    const user = renderApp({ retry: 1, retryDelay: 5000 });
+    await screen.findByRole('alert');
+
+    await user.click(screen.getByText('tap inside'));
+
+    expect(screen.getByText('Loading ban data…')).toBeInTheDocument();
+    expect(screen.getByText("BC Wildfire Service: couldn't load, retrying…")).toBeInTheDocument();
+  });
+
+  it('switches from the retrying message to the missing-bans message once the retries run out', async () => {
+    route({ [PROVINCIAL_URL]: unreachable, [SERVER_BANS_URL]: SERVER_EMPTY });
+    renderApp({ retry: 1, retryDelay: 200 });
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Retrying…');
+
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        "⚠ Couldn't load BC Wildfire Service. Bans may be missing from the map.",
+      ),
+    );
+    expect(screen.getByRole('alert')).not.toHaveTextContent('Retrying…');
+  });
+
+  it('names the server in the retrying banner while a request to it is retried', async () => {
+    route({ [PROVINCIAL_URL]: BCWS_FEED, [SERVER_BANS_URL]: unreachable });
+    renderApp({ retry: 1, retryDelay: 5000 });
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "⚠ Couldn't load ban data from BC Fire Bans server. Retrying…",
+    );
   });
 });

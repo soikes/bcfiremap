@@ -31,6 +31,42 @@ describe('SourceBanner', () => {
     );
   });
 
+  it('says it is retrying while a source that failed is being tried again', () => {
+    render(<SourceBanner sources={[makeSource({ name: 'BC Wildfire Service', status: 'pending', hasData: false, retrying: true })]} />);
+    expect(screen.getByRole('alert')).toHaveTextContent("⚠ Couldn't load ban data from BC Wildfire Service. Retrying…");
+    expect(screen.getByRole('alert')).not.toHaveTextContent('may be missing');
+  });
+
+  it('says it is retrying when a refresh failed while older data is still on the map', () => {
+    render(<SourceBanner sources={[makeSource({ name: 'BC Wildfire Service', retrying: true })]} />);
+    expect(screen.getByRole('alert')).toHaveTextContent("Couldn't load ban data from BC Wildfire Service. Retrying…");
+  });
+
+  it('lists a failed source that is being retried only once, as retrying', () => {
+    render(
+      <SourceBanner sources={[makeSource({ name: 'Source A', status: 'error', hasData: false, retrying: true })]} />,
+    );
+    const banner = screen.getByRole('alert');
+    expect(banner).toHaveTextContent("Couldn't load ban data from Source A. Retrying…");
+    expect(banner).not.toHaveTextContent('may be missing');
+  });
+
+  it('shows both messages when one source is retrying and another has given up', () => {
+    render(
+      <SourceBanner
+        sources={[
+          makeSource({ id: 'a', name: 'Source A', status: 'pending', hasData: false, retrying: true }),
+          makeSource({ id: 'b', name: 'Source B', status: 'error', hasData: false }),
+        ]}
+      />,
+    );
+    const lines = screen.getByRole('alert').querySelectorAll('p');
+    expect([...lines].map(line => line.textContent)).toEqual([
+      "⚠ Couldn't load ban data from Source A. Retrying…",
+      "⚠ Couldn't load Source B. Bans may be missing from the map.",
+    ]);
+  });
+
   it('names every failed source and leaves out the ones that loaded', () => {
     render(
       <SourceBanner

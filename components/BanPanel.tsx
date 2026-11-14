@@ -21,6 +21,11 @@ function panelTitle(bans: FireBan[], sources: SourceStatus[]): string {
 /** One-line status for a data source. */
 function sourceLine(source: SourceStatus): string {
   const time = new Date(source.updatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  if (source.retrying) {
+    return source.hasData
+      ? `${source.name}: update failed, retrying… (showing data from ${time})`
+      : `${source.name}: couldn't load, retrying…`;
+  }
   if (source.status === 'error') {
     return source.hasData
       ? `${source.name}: update failed, showing data from ${time}`

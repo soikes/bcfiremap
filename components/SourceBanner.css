@@ -17,3 +17,11 @@
   transform: translateX(-50%);
   pointer-events: none;
 }
+
+.source-banner-line {
+  margin: 0;
+}
+
+.source-banner-line + .source-banner-line {
+  margin-top: 4px;
+}

@@ -81,6 +81,7 @@ export const makeSource = (overrides: Partial<SourceStatus> = {}): SourceStatus 
   attribution: '',
   status: 'success',
   hasData: true,
+  retrying: false,
   updatedAt: Date.UTC(2026, 6, 1, 19, 0),
   ...overrides,
 });

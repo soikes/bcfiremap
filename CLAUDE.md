@@ -31,7 +31,7 @@ bun install         # install dependencies
 - `components/BaseMap.tsx` — full-size MapLibre map that reports clicks as a `LatLng`
 - `components/FireZones.tsx`, `BanPolygons.tsx`, `SelectedPin.tsx` — map layers built from react-map-gl's `Source` and `Layer`
 - `components/BanPanel.tsx`, `BanCard.tsx` — results panel (centred and width-limited on wide screens); lists the bans at the tapped point plus each source's status, coverage and attribution, with a warning when a source failed
-- `components/SourceBanner.tsx` — banner over the map naming the sources that failed with no data, so users know bans may be missing before they tap
+- `components/SourceBanner.tsx` — banner over the map naming the sources being retried ("Retrying…") and those that failed with no data once retries ran out, so users know bans may be missing before they tap
 - `components/ErrorBoundary.tsx` — catches render errors in the ban layers and the panel so the base map keeps working; tries again when its `resetKey` changes
 - `collectors/` — one `Collector` per data source (`types.ts`): `collect()` fetches and normalizes to `FireBan[]`. `browser.ts` lists the collectors that run in each visitor's browser, `server.ts` the ones the server runs (see Fire bans for which goes where). `provincial.ts` is the BC Wildfire Service ArcGIS feed, `example.ts` is fake dev data (made-up bans shaped like the real Kamloops Fire Centre, whose zones are merged into one outline with `polygon-clipping`, and the Penticton Fire Zone, fetched at runtime from the zones service, plus hand-drawn local ones; the real collector does no merging and uses each row's own polygon), `classifyBan.ts` maps free text to a `BanType`
 - `hooks/useBans.ts` — runs the browser collectors on their own schedules (react-query), fetches `/api/bans`, and merges both, keeping the last good data if a refresh fails; a placeholder source stands in for the server until it answers
@@ -39,7 +39,7 @@ bun install         # install dependencies
 - `lib/queryClient.ts` — shared react-query client (retries with backoff)
 - `utils/fetchJson.ts` — GET + JSON with timeout and abort handling, used by collectors and `useBans`
 - `utils/validate.ts` — checks bans from collectors and the `/api/bans` answer: drops malformed bans and sources, and throws (so the source counts as failed) when a result isn't a list or the answer isn't the expected shape
-- `utils/sourceStatus.ts` — which sources failed with no data, and joining their names for messages
+- `utils/sourceStatus.ts` — which sources failed with no data or are retrying, and joining their names for messages
 - `utils/geojson.ts` — converts bans and points to GeoJSON for the map sources
 - `utils/logger.ts` — thin wrapper around `console.log`/`console.error`
 - `types/` — shared types: `LatLng` (`geo.ts`), `FireBan` (`ban.ts`), and `SourceStatus`/`BansResponse` (`api.ts`, the shape `/api/bans` returns)
@@ -50,7 +50,7 @@ bun install         # install dependencies
 - `css.d.ts` — lets TypeScript accept CSS imports
 - `assets/` — favicon, source icon art, basemap style
 
-A failing source never takes the page down: a source that throws, times out, or returns malformed data is reported as failed (status `error`, no data), the other sources' bans stay on the map, and the banner and panel say which source is missing. A refresh that fails after a success keeps the last good data and the panel shows its time. `App.test.tsx` checks this end to end with a fake map (`mock.module` on `react-map-gl/maplibre`) and `fetch` answered per URL; Bun runs all test files in one process, so module mocks there apply to later files too.
+A failing source never takes the page down: a source that throws, times out, or returns malformed data is reported as failed (status `error`, no data), the other sources' bans stay on the map, and the banner and panel say which source is missing. Every `SourceStatus` carries `retrying` (its last attempt failed and another is coming): browser sources take it from react-query (`failureCount > 0` while still fetching), server sources from `banStore`, and while a request to the server itself is retried a "BC Fire Bans server" entry is flagged. While retrying, the banner says so instead of saying bans are missing. A refresh that fails after a success keeps the last good data and the panel shows its time. `App.test.tsx` checks this end to end with a fake map (`mock.module` on `react-map-gl/maplibre`) and `fetch` answered per URL; Bun runs all test files in one process, so module mocks there apply to later files too.
 
 Each component's styles live in a plain CSS file next to it (`BanPanel.css`), with class names prefixed by the component name (`ban-panel-title`). CSS modules don't work in Bun 1.3.10's dev server (the class name object is never defined).
 

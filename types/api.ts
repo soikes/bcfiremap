@@ -11,6 +11,7 @@ export interface SourceStatus {
   attribution: string;
   status: LoadStatus;
   hasData: boolean;
+  retrying: boolean;
   updatedAt: number;
 }
 

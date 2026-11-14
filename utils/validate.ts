@@ -45,6 +45,7 @@ export function isSourceStatus(value: unknown): value is SourceStatus {
     typeof value.attribution === 'string' &&
     isOneOf(LOAD_STATUSES, value.status) &&
     typeof value.hasData === 'boolean' &&
+    typeof value.retrying === 'boolean' &&
     typeof value.updatedAt === 'number'
   );
 }

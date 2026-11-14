@@ -12,20 +12,24 @@ export const SERVER_BANS_URL = '/api/bans';
 const SERVER_REFRESH_MS = 5 * 60 * 1000;
 const SERVER_WAITING_MS = 5 * 1000;
 
-/** Stands in for the server's sources until the server has answered. */
-const serverPlaceholder = (status: LoadStatus): SourceStatus => ({
+/** Stands in for the server itself: until it has answered, or while a request to it is being retried. */
+const serverPlaceholder = (state: Pick<SourceStatus, 'status' | 'hasData' | 'retrying' | 'updatedAt'>): SourceStatus => ({
   id: 'server',
   name: 'BC Fire Bans server',
   coverage: "Bans gathered on a schedule by this site's server.",
   attribution: '',
-  status,
-  hasData: false,
-  updatedAt: 0,
+  ...state,
 });
 
-/** Polls the server sooner while it is still waiting on a source's first answer. */
+/** True if a query's last attempt failed and it is trying again. */
+const isRetrying = (result: Pick<UseQueryResult, 'failureCount' | 'fetchStatus'>) =>
+  result.failureCount > 0 && result.fetchStatus !== 'idle';
+
+/** Polls the server sooner while one of its sources is still waiting on a first answer or retrying. */
 const serverRefetchInterval = (query: Query<BansResponse>) =>
-  query.state.data?.sources.some(source => source.status === 'pending') ? SERVER_WAITING_MS : SERVER_REFRESH_MS;
+  query.state.data?.sources.some(source => source.status === 'pending' || source.retrying)
+    ? SERVER_WAITING_MS
+    : SERVER_REFRESH_MS;
 
 /** Runs the browser collectors on their own schedules, fetches the server's bans, and merges both, keeping the last good data if a refresh fails. */
 export function useBans(collectors: Collector[] = BROWSER_COLLECTORS): BansResponse {
@@ -39,6 +43,7 @@ export function useBans(collectors: Collector[] = BROWSER_COLLECTORS): BansRespo
         attribution: collectors[i].attribution,
         status: result.status,
         hasData: result.data !== undefined,
+        retrying: isRetrying(result),
         updatedAt: result.dataUpdatedAt,
       })),
     }),
@@ -61,11 +66,19 @@ export function useBans(collectors: Collector[] = BROWSER_COLLECTORS): BansRespo
     refetchInterval: serverRefetchInterval,
   });
 
+  const serverRetrying = isRetrying(server);
+
   return useMemo(() => {
-    const fromServer = server.data ?? { bans: [], sources: [serverPlaceholder(server.status)] };
+    const { status, data, dataUpdatedAt } = server;
+    const serverSources = data
+      ? [
+          ...data.sources,
+          ...(serverRetrying ? [serverPlaceholder({ status, hasData: true, retrying: true, updatedAt: dataUpdatedAt })] : []),
+        ]
+      : [serverPlaceholder({ status, hasData: false, retrying: serverRetrying, updatedAt: 0 })];
     return {
-      bans: [...browser.bans, ...fromServer.bans],
-      sources: [...browser.sources, ...fromServer.sources],
+      bans: [...browser.bans, ...(data?.bans ?? [])],
+      sources: [...browser.sources, ...serverSources],
     };
-  }, [browser, server.data, server.status]);
+  }, [browser, server.status, server.data, server.dataUpdatedAt, serverRetrying]);
 }

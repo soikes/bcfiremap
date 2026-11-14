@@ -32,9 +32,9 @@ const wrapper = ({ children }: { children: ReactNode }) => {
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 };
 
-/** Renders useBans with its own query client and returns both, so a test can trigger refreshes. */
-const renderBans = (collectors: Collector[]) => {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
+/** Renders useBans with its own query client (no retries unless given) and returns both, so a test can trigger refreshes. */
+const renderBans = (collectors: Collector[], retry: { retry: number; retryDelay: number } | { retry: false } = { retry: false }) => {
+  const client = new QueryClient({ defaultOptions: { queries: { gcTime: Infinity, ...retry } } });
   const clientWrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
   );
@@ -278,5 +278,60 @@ describe('useBans when the server fails', () => {
 
     expect(result.current.bans.map(ban => ban.id)).toEqual(['s1']);
     expect(result.current.sources.map(source => source.id)).toEqual(['muni']);
+  });
+});
+
+describe('useBans while retrying', () => {
+  it('flags a browser source as retrying after a failed attempt, and clears it when the retry succeeds', async () => {
+    let calls = 0;
+    const flaky = collector('flaky', async () => {
+      calls += 1;
+      if (calls === 1) throw new Error('down');
+      return [makeBan({ id: 'f1' })];
+    });
+    const { result } = renderBans([flaky], { retry: 1, retryDelay: 100 });
+
+    await waitFor(() => expect(result.current.sources[0]).toMatchObject({ status: 'pending', retrying: true }));
+
+    await waitFor(() => expect(result.current.sources[0]).toMatchObject({ status: 'success', retrying: false }));
+    expect(result.current.bans.map(ban => ban.id)).toEqual(['f1']);
+  });
+
+  it('stops flagging a browser source as retrying once every retry has failed', async () => {
+    const { result } = renderBans([failing('bad')], { retry: 1, retryDelay: 10 });
+
+    await waitFor(() => expect(result.current.sources[0]).toMatchObject({ status: 'error', retrying: false }));
+  });
+
+  it('flags the server placeholder as retrying while the first server request is retried', async () => {
+    mockServer(async () => {
+      throw new Error('offline');
+    });
+    const { result } = renderBans([], { retry: 1, retryDelay: 1000 });
+
+    await waitFor(() =>
+      expect(result.current.sources).toEqual([expect.objectContaining({ id: 'server', status: 'pending', retrying: true })]),
+    );
+  });
+
+  it('adds a retrying server entry next to the server sources when a later request is retried', async () => {
+    let fail = false;
+    mockServer(async () => {
+      if (fail) throw new Error('offline');
+      return { ok: true, json: async () => ({ bans: [makeBan({ id: 's1' })], sources: [makeSource({ id: 'muni' })] }) };
+    });
+    const { result, client } = renderBans([], { retry: 1, retryDelay: 1000 });
+    await waitFor(() => expect(result.current.bans.map(ban => ban.id)).toEqual(['s1']));
+
+    fail = true;
+    void client.refetchQueries({ queryKey: ['server-bans'] });
+
+    await waitFor(() =>
+      expect(result.current.sources).toEqual([
+        expect.objectContaining({ id: 'muni' }),
+        expect.objectContaining({ id: 'server', hasData: true, retrying: true }),
+      ]),
+    );
+    expect(result.current.bans.map(ban => ban.id)).toEqual(['s1']);
   });
 });

@@ -28,6 +28,7 @@ describe('createBanStore', () => {
           attribution: '',
           status: 'pending',
           hasData: false,
+          retrying: false,
           updatedAt: 0,
         },
       ],
@@ -97,6 +98,34 @@ describe('createBanStore', () => {
     await store.refresh(messy);
 
     expect(store.snapshot().bans.map(ban => ban.id)).toEqual(['ok']);
+  });
+
+  it('flags a source as retrying between attempts and clears it when the retry succeeds', async () => {
+    let calls = 0;
+    const flaky = collector('flaky', async () => {
+      calls += 1;
+      if (calls === 1) throw new Error('down');
+      return [makeBan({ id: 'f1' })];
+    });
+    const store = createBanStore([flaky], { retries: 1, retryDelayMs: () => 50 });
+
+    const running = store.refresh(flaky);
+    await Bun.sleep(10);
+    expect(store.snapshot().sources[0]).toMatchObject({ status: 'pending', retrying: true });
+
+    await running;
+    expect(store.snapshot().sources[0]).toMatchObject({ status: 'success', retrying: false });
+  });
+
+  it('clears the retrying flag when every retry fails', async () => {
+    const store = createBanStore([collector('bad', async () => Promise.reject(new Error('down')))], {
+      retries: 2,
+      retryDelayMs: () => 0,
+    });
+
+    await store.refresh(collector('bad', async () => Promise.reject(new Error('down'))));
+
+    expect(store.snapshot().sources[0]).toMatchObject({ status: 'error', retrying: false, hasData: false });
   });
 
   it('retries a failing collector before giving up', async () => {

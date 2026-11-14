@@ -1,19 +1,27 @@
 import { SourceStatus } from '../types/api';
-import { failedSources, joinNames } from '../utils/sourceStatus';
+import { failedSources, joinNames, retryingSources } from '../utils/sourceStatus';
 import './SourceBanner.css';
 
 interface Props {
   sources: SourceStatus[];
 }
 
-/** Banner over the map naming the sources that failed with no data to show; renders nothing when none did. */
+/** Joins the names of the given sources for a message. */
+const namesOf = (sources: SourceStatus[]) => joinNames(sources.map(source => source.name));
+
+/** Banner over the map naming the sources being retried and those that failed with no data to show; renders nothing when there are none. */
 export function SourceBanner({ sources }: Props) {
-  const failed = failedSources(sources);
-  if (failed.length === 0) return null;
-  const names = joinNames(failed.map(source => source.name));
+  const retrying = retryingSources(sources);
+  const failed = failedSources(sources).filter(source => !source.retrying);
+  if (retrying.length === 0 && failed.length === 0) return null;
   return (
     <div className="source-banner" role="alert">
-      {`⚠ Couldn't load ${names}. Bans may be missing from the map.`}
+      {retrying.length > 0 ? (
+        <p className="source-banner-line">{`⚠ Couldn't load ban data from ${namesOf(retrying)}. Retrying…`}</p>
+      ) : null}
+      {failed.length > 0 ? (
+        <p className="source-banner-line">{`⚠ Couldn't load ${namesOf(failed)}. Bans may be missing from the map.`}</p>
+      ) : null}
     </div>
   );
 }
