@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Stack
 
 - **React 19** with `react-dom`, web only
-- **mise**: installs the dev tools at the versions in `mise.toml` (Bun, flyctl, the Docker CLI, colima and lima), locked with checksums in `mise.lock` for macOS arm64 and Linux x64; loads the env files; and runs the project tasks. After changing a version in `mise.toml`, run `mise lock --platform macos-arm64,linux-x64` and commit both files. CI installs from the lockfile with `jdx/mise-action`.
+- **mise**: installs the dev tools at the versions in `mise.toml` (Bun, flyctl and the Docker CLI), locked with checksums in `mise.lock` for macOS arm64 and Linux x64; loads the env files; and runs the project tasks. After changing a version in `mise.toml`, run `mise lock --platform macos-arm64,linux-x64` and commit both files. CI installs from the lockfile with `jdx/mise-action`.
 - **Bun 1.3.10**: package manager, runtime, bundler, dev server and test runner (use `bun` for everything, never `npm` or `yarn`). The same version is pinned in `mise.toml`, the `Dockerfile` and `@types/bun`; change them together.
 - **MapLibre**: `react-map-gl/maplibre` + `maplibre-gl` (pinned 5.24.1); OSM Bright basemap style on OpenFreeMap tiles
 - **TypeScript**: strict mode
@@ -25,7 +25,7 @@ mise run build          # build the image on Fly's remote builder without deploy
 mise run deploy         # build on Fly and deploy (asks first; never run without being asked)
 ```
 
-`mise run dev` starts colima (the Docker VM) if it isn't running. The underlying `bun run dev|build|test|typecheck` scripts in `package.json` still work on their own.
+`mise run dev` needs a running Docker daemon, which each developer brings (Docker Desktop, colima, OrbStack, ...); mise only provides the Docker CLI. The underlying `bun run dev|build|test|typecheck` scripts in `package.json` still work on their own.
 
 Env precedence is the same with and without mise: a shell variable wins, then `.env`, then `.env.template`. mise loads both files under `[env]`, which would normally override the shell, so each overridable variable also gets a line in `mise.toml` that prefers the shell's value (see `PUBLIC_EXAMPLE_BANS`); add one for each new variable.
 

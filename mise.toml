@@ -7,8 +7,6 @@ lockfile = true
 bun = "1.3.10"
 flyctl = "0.5.8"
 docker-cli = "29.9.3"
-colima = "0.10.3"
-lima = "2.3.0"
 
 [env]
 _.file = [".env.template", ".env"]
@@ -19,21 +17,16 @@ description = "Install dependencies exactly as bun.lock records them"
 run = "bun install --frozen-lockfile"
 
 [tasks.dev]
-description = "Build the production image and run it in Docker on http://localhost:8080 (Ctrl+C stops it)"
-depends = ["docker:start"]
+description = "Build the production image and run it in Docker on http://localhost:8080 (Ctrl+C stops it); needs a running Docker daemon"
 run = [
-  "docker build --build-arg PUBLIC_EXAMPLE_BANS=$PUBLIC_EXAMPLE_BANS -t bcfiremap .",
-  "docker run --rm --init --name bcfiremap-dev -p 8080:8080 bcfiremap",
+    "docker build --build-arg PUBLIC_EXAMPLE_BANS=$PUBLIC_EXAMPLE_BANS -t bcfiremap .",
+    "docker run --rm --init --name bcfiremap-dev -p 8080:8080 bcfiremap",
 ]
 
 [tasks."dev:hot"]
 description = "Run the Bun dev server with hot reload on http://localhost:3000"
 depends = ["install"]
 run = "bun run dev"
-
-[tasks."docker:start"]
-description = "Start the colima Docker VM unless it is already running"
-run = "colima status >/dev/null 2>&1 || colima start"
 
 [tasks.test]
 description = "Run the test suite"

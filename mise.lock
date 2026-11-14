@@ -27,23 +27,6 @@ url = "https://github.com/oven-sh/bun/releases/download/bun-v1.3.10/bun-linux-x6
 checksum = "sha256:82034e87c9d9b4398ea619aee2eed5d2a68c8157e9a6ae2d1052d84d533ccd8d"
 url = "https://github.com/oven-sh/bun/releases/download/bun-v1.3.10/bun-darwin-aarch64.zip"
 
-[[tools.colima]]
-version = "0.10.3"
-backend = "aqua:abiosoft/colima"
-specifiers = ["0.10.3"]
-
-[tools.colima."platforms.linux-x64"]
-checksum = "sha256:54ea35f4847815d0a1445dbc2bc3dd6469518a38a9e960449e96b044d248d00d"
-checksum_source = "mise-versions"
-url = "https://github.com/abiosoft/colima/releases/download/v0.10.3/colima-Linux-x86_64"
-url_api = "https://api.github.com/repos/abiosoft/colima/releases/assets/438456720"
-
-[tools.colima."platforms.macos-arm64"]
-checksum = "sha256:980ad8bf61a4ca370243f4cb41401a61276dcd2c2502bee7b9b86f9250169f34"
-checksum_source = "mise-versions"
-url = "https://github.com/abiosoft/colima/releases/download/v0.10.3/colima-Darwin-arm64"
-url_api = "https://api.github.com/repos/abiosoft/colima/releases/assets/438456725"
-
 [[tools.docker-cli]]
 version = "29.9.3"
 backend = "aqua:docker/cli"
@@ -73,20 +56,3 @@ checksum = "sha256:c199eb57765a057c149c393c9f3ca754033c1cd427763fb9cb64a19b0d950
 checksum_source = "mise-versions"
 url = "https://github.com/superfly/flyctl/releases/download/v0.5.8/flyctl_0.5.8_macOS_arm64.tar.gz"
 url_api = "https://api.github.com/repos/superfly/flyctl/releases/assets/736637862"
-
-[[tools.lima]]
-version = "2.3.0"
-backend = "aqua:lima-vm/lima"
-specifiers = ["2.3.0"]
-
-[tools.lima."platforms.linux-x64"]
-checksum = "sha256:cc8ba97f1c801b899f7c9eda9919dfc4ce4fa2c140c53e5add15aa2d0a1936f9"
-url = "https://github.com/lima-vm/lima/releases/download/v2.3.0/lima-2.3.0-Linux-x86_64.tar.gz"
-url_api = "https://api.github.com/repos/lima-vm/lima/releases/assets/717479697"
-provenance = "github-attestations"
-
-[tools.lima."platforms.macos-arm64"]
-checksum = "sha256:b7af444bd8f91d3c307477e562f2cf3bd7595d62b9429185e4fa841563578cfc"
-url = "https://github.com/lima-vm/lima/releases/download/v2.3.0/lima-2.3.0-Darwin-arm64.tar.gz"
-url_api = "https://api.github.com/repos/lima-vm/lima/releases/assets/717479690"
-provenance = "github-attestations"
