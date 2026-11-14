@@ -41,7 +41,7 @@ bun install         # install dependencies
 - `constants/` — map style/camera, fire zones URL and the `SHOW_FIRE_ZONES` flag (`map.ts`), ban colours and labels (`banStyle.ts`)
 - `test/` — fixtures, the `bun test` preloads (`happydom.ts`, `testingLibrary.ts`, set in `bunfig.toml`) and the jest-dom matcher types
 - `bunfig.toml` — test preloads, and which env variables the dev server inlines into the page (`PUBLIC_*`)
-- `.env` — defaults for build-time flags (`PUBLIC_EXAMPLE_BANS=false`)
+- `.env.template` — defaults for build-time flags (`PUBLIC_EXAMPLE_BANS=false`); a local, gitignored `.env` overrides them, and a shell variable overrides both (`bun run dev` and `bun run build` load the two files with `--env-file`)
 - `css.d.ts` — lets TypeScript accept CSS imports
 - `assets/` — favicon, source icon art, basemap style
 
@@ -63,7 +63,7 @@ Where a collector runs depends on its source's licence. Both BC ArcGIS sources (
 
 To add a source: write a `Collector` in `collectors/` that returns `FireBan[]` (reuse `fetchJson`, validate the response, skip bad features instead of throwing), then add it to `BROWSER_COLLECTORS` (`collectors/browser.ts`) or `SERVER_COLLECTORS` (`collectors/server.ts`) according to its licence. A browser source's host must also be added to the CSP. Before relying on server collectors in production, keep one machine running: Fly stops idle machines (`auto_stop_machines`), which pauses the schedule, so set `min_machines_running = 1` and run a single machine (`fly scale count 1`) so sources aren't fetched twice. In dev, `bun --hot` re-runs `server.ts` when server code changes and the earlier schedules keep running, so restart `bun run dev` after editing server code.
 
-Set `PUBLIC_EXAMPLE_BANS=true` when running `bun run dev` or `bun run build` to add the fake example collector. The bundler replaces `process.env.PUBLIC_EXAMPLE_BANS` with its value at build time; `.env` sets it to `false` so it is always defined (left unset, the reference would stay in the page and fail in the browser, where there is no `process`). `collectors/browser.ts` loads the example with a `require` inside an `if` on that variable, so without the flag the bundler drops the branch and neither the example collector nor `polygon-clipping` is in the bundle (checked on a production build). Keep the `require` in that form, and don't set the variable for real production builds. `fly.toml` currently sets it as a build arg (passed through the `Dockerfile`) so the deployed site shows the example data; remove it from `[build.args]` to turn that off.
+Set `PUBLIC_EXAMPLE_BANS=true` (in the shell or in `.env`) when running `bun run dev` or `bun run build` to add the fake example collector. The bundler replaces `process.env.PUBLIC_EXAMPLE_BANS` with its value at build time; `.env.template` sets it to `false` so it is always defined (left unset, the reference would stay in the page and fail in the browser, where there is no `process`). `collectors/browser.ts` loads the example with a `require` inside an `if` on that variable, so without the flag the bundler drops the branch and neither the example collector nor `polygon-clipping` is in the bundle (checked on a production build). Keep the `require` in that form, and don't set the variable for real production builds. `fly.toml` currently sets it as a build arg (passed through the `Dockerfile`) so the deployed site shows the example data; remove it from `[build.args]` to turn that off.
 
 ## Deploy
 

@@ -5,3 +5,4 @@ dist
 ios
 android
 .env*.local
+.env

@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "bun --hot server.ts",
-    "build": "bun build --target=bun --production --env='PUBLIC_*' --outdir=dist server.ts",
+    "dev": "bun --env-file=.env.template --env-file=.env --hot server.ts",
+    "build": "bun --env-file=.env.template --env-file=.env build --target=bun --production --env='PUBLIC_*' --outdir=dist server.ts",
     "start": "cd dist && NODE_ENV=production bun server.js",
     "test": "bun test",
     "typecheck": "tsc --noEmit"
