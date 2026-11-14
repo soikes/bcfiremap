@@ -24,7 +24,7 @@ run = [
 ]
 
 [tasks."dev:hot"]
-description = "Run the Bun dev server with hot reload on http://localhost:3000"
+description = "Run the Bun dev server with hot reload on http://localhost:8080 (the Docker dev setup uses the same port, so run only one)"
 depends = ["install"]
 run = "bun run dev"
 

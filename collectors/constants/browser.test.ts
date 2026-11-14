@@ -5,8 +5,8 @@ const collectorIds = (flag?: string): string[] => {
   const env = { ...process.env };
   delete env.PUBLIC_EXAMPLE_BANS;
   if (flag !== undefined) env.PUBLIC_EXAMPLE_BANS = flag;
-  const script = "const { BROWSER_COLLECTORS } = require('./collectors/browser'); console.log(JSON.stringify(BROWSER_COLLECTORS.map(c => c.id)));";
-  const { stdout } = Bun.spawnSync(['bun', '--no-env-file', '-e', script], { env, cwd: `${import.meta.dir}/..` });
+  const script = "const { BROWSER_COLLECTORS } = require('./collectors/constants/browser'); console.log(JSON.stringify(BROWSER_COLLECTORS.map(c => c.id)));";
+  const { stdout } = Bun.spawnSync(['bun', '--no-env-file', '-e', script], { env, cwd: `${import.meta.dir}/../..` });
   return JSON.parse(stdout.toString().trim().split('\n').pop()!);
 };
 

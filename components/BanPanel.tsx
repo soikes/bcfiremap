@@ -35,6 +35,11 @@ function sourceLine(source: SourceStatus): string {
   return `${source.name}: updated ${time}`;
 }
 
+/** Keeps the sources that supplied one of the bans shown, plus any that haven't loaded cleanly, since those may be hiding bans. */
+function relevantSources(bans: FireBan[], sources: SourceStatus[]): SourceStatus[] {
+  return sources.filter(s => bans.some(ban => ban.source === s.id) || s.status !== 'success' || s.retrying);
+}
+
 /** Stand-in for the panel after it failed to render, asking the user to tap again. */
 export function BanPanelFallback() {
   return (
@@ -48,7 +53,8 @@ export function BanPanelFallback() {
 
 /** Bottom sheet listing the fire bans in effect at the selected location, and which sources were checked. */
 export function BanPanel({ bans, sources, onClose }: Props) {
-  const attributions = [...new Set(sources.map(s => s.attribution).filter(Boolean))];
+  const shown = relevantSources(bans, sources);
+  const attributions = [...new Set(shown.map(s => s.attribution).filter(Boolean))];
   const someFailed = failedSources(sources).length > 0;
 
   return (
@@ -68,7 +74,7 @@ export function BanPanel({ bans, sources, onClose }: Props) {
             <BanCard key={ban.id} ban={ban} />
           ))}
           <div className="ban-panel-sources">
-            {sources.map(source => (
+            {shown.map(source => (
               <div key={source.id} className="ban-panel-source">
                 <p className="ban-panel-source-line">{sourceLine(source)}</p>
                 <p className="ban-panel-source-coverage">{source.coverage}</p>

@@ -1,4 +1,5 @@
 import { LOAD_STATUSES } from '../constants/api';
+import { AREA_KINDS } from '../constants/area';
 import { BAN_LEVELS, BAN_TYPES } from '../constants/ban';
 import { BansResponse, SourceStatus } from '../types/api';
 import { FireBan } from '../types/ban';
@@ -19,6 +20,14 @@ const isOneOf = (allowed: readonly string[], value: unknown) => typeof value ===
 const isArea = (value: unknown) =>
   isObject(value) && (value.type === 'Polygon' || value.type === 'MultiPolygon') && Array.isArray(value.coordinates);
 
+/** True if the value lists the area kinds a ban skips and the kinds that override the skip. */
+const isApplicability = (value: unknown) =>
+  isObject(value) &&
+  Array.isArray(value.excludeAreaKinds) &&
+  value.excludeAreaKinds.every(kind => isOneOf(AREA_KINDS, kind)) &&
+  Array.isArray(value.includeAreaKinds) &&
+  value.includeAreaKinds.every(kind => isOneOf(AREA_KINDS, kind));
+
 /** True if the value has every field the map and panel rely on, with an https bulletin URL if it has one. */
 export function isFireBan(value: unknown): value is FireBan {
   return (
@@ -32,6 +41,8 @@ export function isFireBan(value: unknown): value is FireBan {
     isOptionalString(value.title) &&
     isOptionalString(value.effectiveDate) &&
     isOptionalString(value.expiryDate) &&
+    isOptionalString(value.authorityId) &&
+    (value.applicability === undefined || isApplicability(value.applicability)) &&
     (value.url === undefined || (typeof value.url === 'string' && value.url.startsWith('https://'))) &&
     isArea(value.geometry)
   );

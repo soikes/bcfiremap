@@ -1,4 +1,4 @@
-import { SERVER_COLLECTORS } from '../collectors/server';
+import { SERVER_COLLECTORS } from '../collectors/constants/server';
 import { API_PORT } from '../constants/server';
 import { logger } from '../utils/logger';
 import { apiRoutes } from './api';

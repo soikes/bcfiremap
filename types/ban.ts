@@ -1,5 +1,6 @@
 import type { MultiPolygon, Polygon } from 'geojson';
 import type { BAN_LEVELS, BAN_TYPES } from '../constants/ban';
+import type { Applicability } from './area';
 
 export type BanLevel = (typeof BAN_LEVELS)[number];
 
@@ -16,5 +17,7 @@ export interface FireBan {
   effectiveDate?: string;
   expiryDate?: string;
   url?: string;
+  authorityId?: string;
+  applicability?: Applicability;
   geometry: Polygon | MultiPolygon;
 }

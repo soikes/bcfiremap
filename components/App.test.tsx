@@ -10,7 +10,7 @@ import { clickMap } from '../test/fakeMapLibre';
 const INSIDE = [49.5, -119.5] as const;
 const OUTSIDE = [58, -125] as const;
 
-mock.module('../collectors/browser', () => ({ BROWSER_COLLECTORS: [provincialCollector] }));
+mock.module('../collectors/constants/browser', () => ({ BROWSER_COLLECTORS: [provincialCollector] }));
 
 const { default: App } = await import('./App');
 

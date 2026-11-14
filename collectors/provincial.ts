@@ -1,9 +1,11 @@
 import type { Geometry, MultiPolygon, Polygon } from 'geojson';
+import { BCWS_APPLICABILITY } from '../constants/area';
+import { BCWS_AUTHORITY } from '../constants/authority';
 import { FireBan } from '../types/ban';
 import { Collector } from '../types/collector';
 import { logger } from '../utils/logger';
 import { fetchJson } from '../utils/web';
-import { classifyBan } from './classifyBan';
+import { classifyBan } from '../utils/classifyBan';
 
 const SOURCE_ID = 'bcws';
 
@@ -73,6 +75,8 @@ function toBan(feature: unknown): FireBan | null {
     id: `${SOURCE_ID}:${String(sourceId)}`,
     source: SOURCE_ID,
     level: 'provincial',
+    authorityId: BCWS_AUTHORITY.id,
+    applicability: BCWS_APPLICABILITY,
     region: text(props.FIRE_ZONE_NAME) ?? text(props.FIRE_CENTRE_NAME) ?? 'British Columbia',
     type: classifyBan([title, description].filter(Boolean).join(' ')),
     title,

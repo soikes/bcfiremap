@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, mock } from 'bun:test';
+import { BCWS_APPLICABILITY } from '../constants/area';
 import { BCWS_2022_FEED } from '../test/bcws2022';
 import { PROVINCIAL_URL, parseProvincialBans, provincialCollector } from './provincial';
 
@@ -37,6 +38,8 @@ describe('parseProvincialBans with the real 2022 feed rows', () => {
       id: 'bcws:3',
       source: 'bcws',
       level: 'provincial',
+      authorityId: 'bcws',
+      applicability: BCWS_APPLICABILITY,
       region: 'Kamloops',
       type: 'category2-3',
       title: 'Partial Prohibition',

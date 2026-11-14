@@ -1,6 +1,6 @@
 import { Query, useQueries, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
-import { BROWSER_COLLECTORS } from '../collectors/browser';
+import { BROWSER_COLLECTORS } from '../collectors/constants/browser';
 import { BANS_API_PATH } from '../constants/api';
 import { BansResponse, SourceStatus } from '../types/api';
 import { FireBan } from '../types/ban';

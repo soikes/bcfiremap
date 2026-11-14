@@ -91,17 +91,33 @@ describe('BanPanelFallback', () => {
 });
 
 describe('BanPanel sources', () => {
-  it('shows each source, what it covers and its attribution', () => {
+  it('shows the source of each ban, what it covers and its attribution', () => {
     const source = makeSource({
       name: 'BC Wildfire Service',
       coverage: 'Provincial orders only.',
       attribution: 'Licensed under the Open Government Licence – British Columbia.',
     });
-    renderPanel([], [source]);
+    renderPanel([makeBan({ source: source.id })], [source]);
 
     expect(screen.getByText(/BC Wildfire Service: updated/)).toBeInTheDocument();
     expect(screen.getByText('Provincial orders only.')).toBeInTheDocument();
     expect(screen.getByText('Licensed under the Open Government Licence – British Columbia.')).toBeInTheDocument();
+  });
+
+  it('hides healthy sources that supplied none of the bans shown, with their coverage and attribution', () => {
+    const used = makeSource({ id: 'used', name: 'Used Source' });
+    const unused = makeSource({ id: 'unused', name: 'Unused Source', coverage: 'Unused coverage.', attribution: 'Unused credit.' });
+    renderPanel([makeBan({ source: 'used' })], [used, unused]);
+
+    expect(screen.getByText(/Used Source: updated/)).toBeInTheDocument();
+    expect(screen.queryByText(/Unused Source/)).toBeNull();
+    expect(screen.queryByText('Unused coverage.')).toBeNull();
+    expect(screen.queryByText('Unused credit.')).toBeNull();
+  });
+
+  it('still shows a source that failed even though it supplied no bans here', () => {
+    renderPanel([], [makeSource({ id: 'down', name: 'Down Source', status: 'error', hasData: false })]);
+    expect(screen.getByText('Down Source: unavailable')).toBeInTheDocument();
   });
 
   it('shows stale data with a warning when a refresh failed', () => {
