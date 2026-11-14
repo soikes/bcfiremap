@@ -1,98 +1,111 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'bun:test';
 import { makeSource } from '../test/fixtures';
+import { SourceStatus } from '../types/api';
 import { SourceBanner } from './SourceBanner';
 
-/** The banner's lines, as text. */
-const lines = () => [...screen.getByRole('status').querySelectorAll('p')].map(line => line.textContent);
+/** The banner's rows as text, in order. */
+const rows = () => [...screen.getByRole('status').querySelectorAll('li')].map(row => row.textContent);
+
+/** The banner's row for a source name. */
+const rowFor = (name: string) => [...screen.getByRole('status').querySelectorAll('li')].find(row => row.textContent?.includes(name));
 
 const loading = (name: string) => makeSource({ id: name, name, status: 'pending', hasData: false, fetching: true });
 const retrying = (name: string) => makeSource({ id: name, name, status: 'pending', hasData: false, fetching: true, retrying: true });
 const failed = (name: string) => makeSource({ id: name, name, status: 'error', hasData: false });
+const loaded = (name: string) => makeSource({ id: name, name });
+
+const renderBanner = (sources: SourceStatus[]) => render(<SourceBanner sources={sources} />);
 
 describe('SourceBanner when nothing needs saying', () => {
   it('shows nothing when every source loaded', () => {
-    render(<SourceBanner sources={[makeSource()]} />);
+    renderBanner([loaded('A')]);
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
   it('shows nothing when there are no sources yet', () => {
-    render(<SourceBanner sources={[]} />);
+    renderBanner([]);
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
   it('shows nothing when a refresh failed but older data is still on the map', () => {
-    render(<SourceBanner sources={[makeSource({ status: 'error', hasData: true })]} />);
+    renderBanner([makeSource({ status: 'error', hasData: true })]);
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 });
 
-describe('SourceBanner while loading', () => {
-  it('names the source whose first load is in flight, with a spinner', () => {
-    const { container } = render(<SourceBanner sources={[loading('BC Wildfire Service')]} />);
-    expect(lines()).toEqual(['Loading ban data from BC Wildfire Service…']);
-    expect(container.querySelector('.source-banner-spinner')).toHaveAttribute('aria-hidden', 'true');
+describe('SourceBanner rows', () => {
+  it('gives a loading source a quiet row with a spinner', () => {
+    renderBanner([loading('BC Wildfire Service')]);
+    expect(rows()).toEqual(['Loading ban data from BC Wildfire Service…']);
+    const row = rowFor('BC Wildfire Service');
+    expect(row).toHaveClass('source-banner-loading');
+    expect(row?.querySelector('.source-banner-spinner')).toHaveAttribute('aria-hidden', 'true');
   });
 
-  it('names a source refreshing data it already has', () => {
-    render(<SourceBanner sources={[makeSource({ name: 'BC Wildfire Service', fetching: true })]} />);
-    expect(lines()).toEqual(['Loading ban data from BC Wildfire Service…']);
+  it('shows a source refreshing data it already has as loading', () => {
+    renderBanner([makeSource({ name: 'BC Wildfire Service', fetching: true })]);
+    expect(rows()).toEqual(['Loading ban data from BC Wildfire Service…']);
   });
 
-  it('lists every source in flight and leaves out the idle ones', () => {
-    render(<SourceBanner sources={[loading('A'), makeSource({ id: 'b', name: 'B' }), loading('C'), loading('D')]} />);
-    expect(lines()).toEqual(['Loading ban data from A, C and D…']);
+  it('gives a source being retried a warning row with a spinner', () => {
+    renderBanner([retrying('BC Wildfire Service')]);
+    expect(rows()).toEqual(["Couldn't load ban data from BC Wildfire Service. Retrying…"]);
+    expect(rowFor('BC Wildfire Service')).toHaveClass('source-banner-retrying');
+    expect(rowFor('BC Wildfire Service')?.querySelector('.source-banner-spinner')).toBeInTheDocument();
   });
 
-  it('stays quiet rather than looking like a warning', () => {
-    render(<SourceBanner sources={[loading('A')]} />);
-    expect(screen.getByRole('status')).not.toHaveClass('source-banner-warning');
-  });
-});
-
-describe('SourceBanner when a source fails', () => {
-  it('says a source is being retried, with a spinner, as a warning', () => {
-    const { container } = render(<SourceBanner sources={[retrying('BC Wildfire Service')]} />);
-    expect(lines()).toEqual(["Couldn't load ban data from BC Wildfire Service. Retrying…"]);
-    expect(container.querySelector('.source-banner-spinner')).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveClass('source-banner-warning');
+  it('shows a refresh being retried while older data is still on the map', () => {
+    renderBanner([makeSource({ name: 'BC Wildfire Service', fetching: true, retrying: true })]);
+    expect(rows()).toEqual(["Couldn't load ban data from BC Wildfire Service. Retrying…"]);
   });
 
-  it('says it is retrying when a refresh failed while older data is still on the map', () => {
-    render(<SourceBanner sources={[makeSource({ name: 'BC Wildfire Service', fetching: true, retrying: true })]} />);
-    expect(lines()).toEqual(["Couldn't load ban data from BC Wildfire Service. Retrying…"]);
+  it('gives a source that failed once retries ran out a warning row without a spinner', () => {
+    renderBanner([failed('BC Wildfire Service')]);
+    expect(rows()).toEqual(["⚠ Couldn't load BC Wildfire Service. Bans may be missing from the map."]);
+    expect(rowFor('BC Wildfire Service')).toHaveClass('source-banner-failed');
+    expect(rowFor('BC Wildfire Service')?.querySelector('.source-banner-spinner')).not.toBeInTheDocument();
   });
 
-  it('says bans may be missing once the retries run out, without a spinner', () => {
-    const { container } = render(<SourceBanner sources={[failed('BC Wildfire Service')]} />);
-    expect(lines()).toEqual(["⚠ Couldn't load BC Wildfire Service. Bans may be missing from the map."]);
-    expect(container.querySelector('.source-banner-spinner')).not.toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveClass('source-banner-warning');
-  });
-
-  it('names every failed source', () => {
-    render(<SourceBanner sources={[failed('A'), failed('B'), failed('C')]} />);
-    expect(lines()).toEqual(["⚠ Couldn't load A, B and C. Bans may be missing from the map."]);
-  });
-
-  it('moves a failed source back to loading when it tries again', () => {
-    render(<SourceBanner sources={[makeSource({ name: 'A', status: 'error', hasData: false, fetching: true })]} />);
-    expect(lines()).toEqual(['Loading ban data from A…']);
+  it('shows a failed source that tries again as loading', () => {
+    renderBanner([makeSource({ name: 'A', status: 'error', hasData: false, fetching: true })]);
+    expect(rows()).toEqual(['Loading ban data from A…']);
   });
 });
 
-describe('SourceBanner with sources in different states', () => {
-  it('shows one line per state, most serious first, with each source in one line only', () => {
-    render(<SourceBanner sources={[loading('A'), failed('B'), retrying('C'), makeSource({ id: 'd', name: 'D' }), loading('E')]} />);
-    expect(lines()).toEqual([
+describe('SourceBanner with several sources', () => {
+  it('gives each source its own row, in source order, and leaves out the loaded ones', () => {
+    renderBanner([loading('A'), failed('B'), loaded('C'), retrying('D'), loading('E')]);
+    expect(rows()).toEqual([
+      'Loading ban data from A…',
       "⚠ Couldn't load B. Bans may be missing from the map.",
-      "Couldn't load ban data from C. Retrying…",
-      'Loading ban data from A and E…',
+      "Couldn't load ban data from D. Retrying…",
+      'Loading ban data from E…',
     ]);
   });
 
-  it('turns into a warning as soon as one source has failed', () => {
-    render(<SourceBanner sources={[loading('A'), failed('B')]} />);
-    expect(screen.getByRole('status')).toHaveClass('source-banner-warning');
+  it('removes a row once its source has loaded and keeps the others', () => {
+    const { rerender } = renderBanner([loading('A'), loading('B')]);
+    expect(rows()).toEqual(['Loading ban data from A…', 'Loading ban data from B…']);
+
+    rerender(<SourceBanner sources={[loaded('A'), loading('B')]} />);
+
+    expect(rows()).toEqual(['Loading ban data from B…']);
+  });
+
+  it('updates a row in place as its source goes from loading to retrying to failed', () => {
+    const { rerender } = renderBanner([loading('A'), loading('B')]);
+
+    rerender(<SourceBanner sources={[retrying('A'), loading('B')]} />);
+    expect(rows()).toEqual(["Couldn't load ban data from A. Retrying…", 'Loading ban data from B…']);
+
+    rerender(<SourceBanner sources={[failed('A'), loaded('B')]} />);
+    expect(rows()).toEqual(["⚠ Couldn't load A. Bans may be missing from the map."]);
+  });
+
+  it('keeps each row as its own list item', () => {
+    renderBanner([loading('A'), loading('B'), loading('C')]);
+    expect(screen.getByRole('status').tagName).toBe('UL');
+    expect(screen.getAllByRole('listitem', { hidden: true })).toHaveLength(3);
   });
 });

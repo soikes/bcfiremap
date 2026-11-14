@@ -76,17 +76,3 @@ export function parseBansResponse(body: unknown): BansResponse {
 /** Returns the sources that failed and have no data to show. */
 export const failedSources = (sources: SourceStatus[]) =>
   sources.filter(source => source.status === 'error' && !source.hasData);
-
-/** Returns the sources whose last attempt failed and that are trying again. */
-export const retryingSources = (sources: SourceStatus[]) => sources.filter(source => source.retrying);
-
-/** Returns the sources with a request in flight, leaving out the ones being retried. */
-export const loadingSources = (sources: SourceStatus[]) =>
-  sources.filter(source => source.fetching && !source.retrying);
-
-/** Joins the sources' names as "A", "A and B" or "A, B and C". */
-export function sourceNames(sources: SourceStatus[]): string {
-  const names = sources.map(source => source.name);
-  if (names.length <= 1) return names.join('');
-  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
-}

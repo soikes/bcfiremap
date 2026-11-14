@@ -1,15 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 import { makeBan, makeSource } from '../test/fixtures';
-import {
-  failedSources,
-  isFireBan,
-  isSourceStatus,
-  loadingSources,
-  parseBansResponse,
-  retryingSources,
-  sourceNames,
-  validBans,
-} from './bans';
+import { failedSources, isFireBan, isSourceStatus, parseBansResponse, validBans } from './bans';
 
 describe('isFireBan', () => {
   it('accepts a complete ban, with or without the optional fields', () => {
@@ -110,40 +101,5 @@ describe('failedSources', () => {
 
   it('returns nothing when there are no sources', () => {
     expect(failedSources([])).toEqual([]);
-  });
-});
-
-describe('retryingSources', () => {
-  it('returns only the sources that are retrying, with or without data', () => {
-    const sources = [
-      makeSource({ id: 'ok' }),
-      makeSource({ id: 'first-load', status: 'pending', hasData: false, retrying: true }),
-      makeSource({ id: 'refresh', retrying: true }),
-      makeSource({ id: 'down', status: 'error', hasData: false }),
-    ];
-    expect(retryingSources(sources).map(source => source.id)).toEqual(['first-load', 'refresh']);
-  });
-});
-
-describe('loadingSources', () => {
-  it('returns the sources with a request in flight, leaving out the ones being retried', () => {
-    const sources = [
-      makeSource({ id: 'idle' }),
-      makeSource({ id: 'first-load', status: 'pending', hasData: false, fetching: true }),
-      makeSource({ id: 'refresh', fetching: true }),
-      makeSource({ id: 'retry', status: 'pending', hasData: false, fetching: true, retrying: true }),
-    ];
-    expect(loadingSources(sources).map(source => source.id)).toEqual(['first-load', 'refresh']);
-  });
-});
-
-describe('sourceNames', () => {
-  it.each([
-    [[], ''],
-    [['A'], 'A'],
-    [['A', 'B'], 'A and B'],
-    [['A', 'B', 'C'], 'A, B and C'],
-  ])('joins %p as %p', (names, expected) => {
-    expect(sourceNames(names.map(name => makeSource({ id: name, name })))).toBe(expected);
   });
 });
