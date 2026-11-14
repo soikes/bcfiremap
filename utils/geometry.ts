@@ -1,6 +1,23 @@
-import type { MultiPolygon, Polygon, Position } from 'geojson';
+import type { Feature, FeatureCollection, MultiPolygon, Point, Polygon, Position } from 'geojson';
+import { FireBan } from '../types/ban';
 import { LatLng } from '../types/geo';
-import { pointInPolygon } from './pointInPolygon';
+
+/** True if the point is inside the ring, by counting how many of its edges a ray from the point crosses. */
+export function pointInPolygon(point: LatLng, polygon: LatLng[]): boolean {
+  const { latitude: py, longitude: px } = point;
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const { latitude: iy, longitude: ix } = polygon[i];
+    const { latitude: jy, longitude: jx } = polygon[j];
+    if (
+      (iy > py) !== (jy > py) &&
+      px < ((jx - ix) * (py - iy)) / (jy - iy) + ix
+    ) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
 
 /** Converts a GeoJSON ring of [lng, lat] positions to LatLngs. */
 const toRing = (ring: Position[]): LatLng[] =>
@@ -18,4 +35,23 @@ export function pointInGeometry(point: LatLng, geometry: Polygon | MultiPolygon)
   return geometry.type === 'Polygon'
     ? inPolygon(point, geometry.coordinates)
     : geometry.coordinates.some(rings => inPolygon(point, rings));
+}
+
+/** Converts fire bans to GeoJSON features carrying each ban's id, level and region. */
+export function bansToFeatureCollection(bans: FireBan[]): FeatureCollection<Polygon | MultiPolygon> {
+  const features = bans.map((ban): Feature<Polygon | MultiPolygon> => ({
+    type: 'Feature',
+    id: ban.id,
+    properties: { id: ban.id, level: ban.level, region: ban.region },
+    geometry: ban.geometry,
+  }));
+  return { type: 'FeatureCollection', features };
+}
+
+/** Converts a single location to a one-point GeoJSON FeatureCollection. */
+export function pointToFeatureCollection({ latitude, longitude }: LatLng): FeatureCollection<Point> {
+  return {
+    type: 'FeatureCollection',
+    features: [{ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [longitude, latitude] } }],
+  };
 }

@@ -1,8 +1,8 @@
 import { BansResponse, LoadStatus } from '../types/api';
 import { FireBan } from '../types/ban';
 import { Collector } from '../types/collector';
+import { validBans } from '../utils/bans';
 import { logger } from '../utils/logger';
-import { validBans } from '../utils/validate';
 
 interface Entry {
   bans: FireBan[];

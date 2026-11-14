@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { SHOW_FIRE_ZONES } from '../constants/map';
 import { useBans } from '../hooks/useBans';
 import { useFireBans } from '../hooks/useFireBans';
-import { queryClient } from '../lib/queryClient';
 import { LatLng } from '../types/geo';
 import './App.css';
 import { BanPanel, BanPanelFallback } from './BanPanel';
@@ -17,6 +16,15 @@ import { SourceBanner } from './SourceBanner';
 interface Props {
   client?: QueryClient;
 }
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 3,
+      retryDelay: attempt => Math.min(1000 * 2 ** attempt, 30000),
+    },
+  },
+});
 
 /** Map screen: owns the selected location and composes the map layers, the source banner and the results panel. */
 function MapScreen() {

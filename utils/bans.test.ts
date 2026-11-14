@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 import { makeBan, makeSource } from '../test/fixtures';
-import { isFireBan, isSourceStatus, parseBansResponse, validBans } from './validate';
+import { failedSources, isFireBan, isSourceStatus, parseBansResponse, retryingSources, validBans } from './bans';
 
 describe('isFireBan', () => {
   it('accepts a complete ban, with or without the optional fields', () => {
@@ -84,5 +84,33 @@ describe('parseBansResponse', () => {
     ['sources that are not a list', { bans: [], sources: 'none' }],
   ])('throws on %s', (_case, body) => {
     expect(() => parseBansResponse(body)).toThrow();
+  });
+});
+
+describe('failedSources', () => {
+  it('returns only the sources that failed with no data', () => {
+    const sources = [
+      makeSource({ id: 'ok' }),
+      makeSource({ id: 'loading', status: 'pending', hasData: false }),
+      makeSource({ id: 'stale', status: 'error', hasData: true }),
+      makeSource({ id: 'down', status: 'error', hasData: false }),
+    ];
+    expect(failedSources(sources).map(source => source.id)).toEqual(['down']);
+  });
+
+  it('returns nothing when there are no sources', () => {
+    expect(failedSources([])).toEqual([]);
+  });
+});
+
+describe('retryingSources', () => {
+  it('returns only the sources that are retrying, with or without data', () => {
+    const sources = [
+      makeSource({ id: 'ok' }),
+      makeSource({ id: 'first-load', status: 'pending', hasData: false, retrying: true }),
+      makeSource({ id: 'refresh', retrying: true }),
+      makeSource({ id: 'down', status: 'error', hasData: false }),
+    ];
+    expect(retryingSources(sources).map(source => source.id)).toEqual(['first-load', 'refresh']);
   });
 });

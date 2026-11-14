@@ -5,8 +5,8 @@ import { BANS_API_PATH } from '../constants/api';
 import { BansResponse, SourceStatus } from '../types/api';
 import { FireBan } from '../types/ban';
 import { Collector } from '../types/collector';
-import { fetchJson } from '../utils/fetchJson';
-import { parseBansResponse, validBans } from '../utils/validate';
+import { parseBansResponse, validBans } from '../utils/bans';
+import { fetchJson } from '../utils/web';
 
 const SERVER_REFRESH_MS = 5 * 60 * 1000;
 const SERVER_WAITING_MS = 5 * 1000;

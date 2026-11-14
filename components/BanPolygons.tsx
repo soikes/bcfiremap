@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Layer, Source } from 'react-map-gl/maplibre';
 import { levelColor } from '../constants/banStyle';
 import { FireBan } from '../types/ban';
-import { bansToFeatureCollection } from '../utils/geojson';
+import { bansToFeatureCollection } from '../utils/geometry';
 import { logger } from '../utils/logger';
 
 interface Props {

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, jest, mock } from 'bun:test';
-import { fetchJson } from './fetchJson';
+import { fetchJson } from './web';
 
 const realFetch = globalThis.fetch;
 

@@ -1,9 +1,15 @@
 import { SourceStatus } from '../types/api';
-import { failedSources, joinNames, retryingSources } from '../utils/sourceStatus';
+import { failedSources, retryingSources } from '../utils/bans';
 import './SourceBanner.css';
 
 interface Props {
   sources: SourceStatus[];
+}
+
+/** Joins names as "A", "A and B" or "A, B and C". */
+function joinNames(names: string[]): string {
+  if (names.length <= 1) return names.join('');
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 }
 
 /** Joins the names of the given sources for a message. */

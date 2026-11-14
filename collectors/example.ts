@@ -3,8 +3,8 @@ import polygonClipping, { Polygon as ClipPolygon } from 'polygon-clipping';
 import { FIRE_ZONES_URL } from '../constants/map';
 import { FireBan } from '../types/ban';
 import { Collector } from '../types/collector';
-import { fetchJson } from '../utils/fetchJson';
 import { logger } from '../utils/logger';
+import { fetchJson } from '../utils/web';
 
 interface ZoneFeature {
   properties?: { FIRE_ZONE?: string; FIRE_CENTRE?: string } | null;

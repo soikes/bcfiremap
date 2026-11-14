@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Layer, Source } from 'react-map-gl/maplibre';
 import { LatLng } from '../types/geo';
-import { pointToFeatureCollection } from '../utils/geojson';
+import { pointToFeatureCollection } from '../utils/geometry';
 
 interface Props {
   coordinate: LatLng;

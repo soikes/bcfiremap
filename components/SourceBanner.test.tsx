@@ -67,6 +67,15 @@ describe('SourceBanner', () => {
     ]);
   });
 
+  it('lists three or more failed sources with commas and a final "and"', () => {
+    render(
+      <SourceBanner
+        sources={['A', 'B', 'C'].map(name => makeSource({ id: name, name: `Source ${name}`, status: 'error', hasData: false }))}
+      />,
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent("Couldn't load Source A, Source B and Source C.");
+  });
+
   it('names every failed source and leaves out the ones that loaded', () => {
     render(
       <SourceBanner

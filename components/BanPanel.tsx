@@ -1,6 +1,6 @@
 import { SourceStatus } from '../types/api';
 import { FireBan } from '../types/ban';
-import { failedSources } from '../utils/sourceStatus';
+import { failedSources } from '../utils/bans';
 import { BanCard } from './BanCard';
 import './BanPanel.css';
 

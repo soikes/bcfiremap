@@ -56,7 +56,7 @@ export function isSourceStatus(value: unknown): value is SourceStatus {
 function validItems<T>(value: unknown, check: (item: unknown) => item is T, what: string, from: string): T[] {
   if (!Array.isArray(value)) throw new Error(`${from} returned ${what} that are not a list`);
   const valid = value.filter(check);
-  if (valid.length < value.length) logger.error(`[validate] dropped invalid ${what} from ${from}`, value.length - valid.length);
+  if (valid.length < value.length) logger.error(`[bans] dropped invalid ${what} from ${from}`, value.length - valid.length);
   return valid;
 }
 
@@ -71,3 +71,10 @@ export function parseBansResponse(body: unknown): BansResponse {
     sources: validItems(body.sources, isSourceStatus, 'sources', 'server'),
   };
 }
+
+/** Returns the sources that failed and have no data to show. */
+export const failedSources = (sources: SourceStatus[]) =>
+  sources.filter(source => source.status === 'error' && !source.hasData);
+
+/** Returns the sources whose last attempt failed and that are trying again. */
+export const retryingSources = (sources: SourceStatus[]) => sources.filter(source => source.retrying);

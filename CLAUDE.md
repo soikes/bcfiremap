@@ -35,13 +35,14 @@ bun install         # install dependencies
 - `components/ErrorBoundary.tsx` — catches render errors in the ban layers and the panel so the base map keeps working; tries again when its `resetKey` changes
 - `collectors/` — one `Collector` per data source (`types/collector.ts`): `collect()` fetches and normalizes to `FireBan[]`. `browser.ts` lists the collectors that run in each visitor's browser, `server.ts` the ones the server runs (see Fire bans for which goes where). `provincial.ts` is the BC Wildfire Service ArcGIS feed, `example.ts` is fake dev data (made-up bans shaped like the real Kamloops Fire Centre, whose zones are merged into one outline with `polygon-clipping`, and the Penticton Fire Zone, fetched at runtime from the zones service, plus hand-drawn local ones; the real collector does no merging and uses each row's own polygon), `classifyBan.ts` maps free text to a `BanType`
 - `hooks/useBans.ts` — runs the browser collectors on their own schedules (react-query), fetches `/api/bans`, and merges both, keeping the last good data if a refresh fails; a placeholder source stands in for the server until it answers
-- `hooks/useFireBans.ts` — returns the bans whose area contains the selected location, broadest first, using `utils/geometry.ts` (Polygon/MultiPolygon with holes) and `utils/pointInPolygon.ts`
-- `lib/queryClient.ts` — shared react-query client (retries with backoff)
-- `utils/fetchJson.ts` — GET + JSON with timeout and abort handling, used by collectors and `useBans`
-- `utils/validate.ts` — checks bans from collectors and the `/api/bans` answer: drops malformed bans and sources, and throws (so the source counts as failed) when a result isn't a list or the answer isn't the expected shape
-- `utils/sourceStatus.ts` — which sources failed with no data or are retrying, and joining their names for messages
-- `utils/geojson.ts` — converts bans and points to GeoJSON for the map sources
-- `utils/logger.ts` — thin wrapper around `console.log`/`console.error`
+- `hooks/useFireBans.ts` — returns the bans whose area contains the selected location, broadest first, using `pointInGeometry` from `utils/geometry.ts` (Polygon/MultiPolygon with holes)
+- `utils/` — helpers grouped by what they do, one file each:
+  - `bans.ts` — checks ban data from collectors and the `/api/bans` answer (drops malformed bans and sources, and throws, so the source counts as failed, when a result isn't a list or the answer isn't the expected shape), and says which sources failed with no data or are retrying
+  - `geometry.ts` — point-in-area checks (Polygon/MultiPolygon with holes) and converting bans and points to GeoJSON for the map
+  - `web.ts` — `fetchJson`: GET + JSON with timeout and abort handling, used by collectors and `useBans`
+  - `logger.ts` — thin wrapper around `console.log`/`console.error`
+
+  A helper used by one file only lives in that file (the react-query client in `components/App.tsx`, `joinNames` in `components/SourceBanner.tsx`).
 - `types/` — every type file: `LatLng` (`geo.ts`), `FireBan` (`ban.ts`), `SourceStatus`/`BansResponse` (`api.ts`, the shape `/api/bans` returns), `Collector` (`collector.ts`), and the declarations for CSS imports (`css.d.ts`) and the jest-dom test matchers (`matchers.d.ts`). A component's `Props` and other types used by one file only stay in that file
 - `constants/` — every value used by more than one file, grouped by topic: ban levels and types (`ban.ts`), the `/api/bans` path and load statuses (`api.ts`), the Bun server's port (`server.ts`; `deploy/nginx.conf` repeats it), ban colours and labels (`banStyle.ts`), and map style/camera, fire zones URL and the `SHOW_FIRE_ZONES` flag (`map.ts`). A value used by one file only (a timeout, a collector's own URL) stays at the top of that file. `types/` holds no values: where a type lists allowed values (`BanLevel`, `BanType`, `LoadStatus`), it is derived from the list in `constants/` with a type-only import, so the two can't drift apart
 - `test/` — fixtures and the `bun test` preloads (`happydom.ts`, `testingLibrary.ts`, set in `bunfig.toml`)

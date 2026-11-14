@@ -1,8 +1,8 @@
 import type { Geometry, MultiPolygon, Polygon } from 'geojson';
 import { FireBan } from '../types/ban';
 import { Collector } from '../types/collector';
-import { fetchJson } from '../utils/fetchJson';
 import { logger } from '../utils/logger';
+import { fetchJson } from '../utils/web';
 import { classifyBan } from './classifyBan';
 
 const SOURCE_ID = 'bcws';
