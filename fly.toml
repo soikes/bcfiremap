@@ -8,7 +8,7 @@ primary_region = 'sea'
 
 [build]
   [build.args]
-    EXPO_PUBLIC_EXAMPLE_BANS = 'true'
+    PUBLIC_EXAMPLE_BANS = 'true'
 
 [http_service]
   internal_port = 8080
@@ -16,6 +16,16 @@ primary_region = 'sea'
   auto_stop_machines = 'stop'
   auto_start_machines = true
   min_machines_running = 0
+
+  [http_service.http_options.response.headers]
+    Content-Security-Policy = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.openfreemap.org https://openmaptiles.github.io; connect-src 'self' https://tiles.openfreemap.org https://openmaptiles.github.io https://services6.arcgis.com; worker-src blob:; child-src blob:; font-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'"
+    X-Content-Type-Options = 'nosniff'
+    X-Frame-Options = 'DENY'
+    Referrer-Policy = 'strict-origin-when-cross-origin'
+    Permissions-Policy = 'camera=(), microphone=(), geolocation=(), payment=(), usb=()'
+    Cross-Origin-Opener-Policy = 'same-origin'
+    Cross-Origin-Resource-Policy = 'same-origin'
+    Strict-Transport-Security = 'max-age=31536000; includeSubDomains'
 
 [[vm]]
   size = 'shared-cpu-1x'

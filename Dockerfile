@@ -1,15 +1,16 @@
-FROM oven/bun:1 AS build
+FROM oven/bun:1.3.10 AS build
 WORKDIR /app
-ENV CI=1 EXPO_NO_TELEMETRY=1
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 COPY . .
-ARG EXPO_PUBLIC_EXAMPLE_BANS
-ENV EXPO_PUBLIC_EXAMPLE_BANS=$EXPO_PUBLIC_EXAMPLE_BANS
-RUN bun run build:web
+ARG PUBLIC_EXAMPLE_BANS=false
+ENV PUBLIC_EXAMPLE_BANS=$PUBLIC_EXAMPLE_BANS
+RUN bun run build
 
-FROM nginxinc/nginx-unprivileged:stable-alpine
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-COPY security-headers.conf /etc/nginx/snippets/security-headers.conf
-COPY --from=build /app/dist /usr/share/nginx/html
+FROM oven/bun:1.3.10-slim
+WORKDIR /app
+COPY --from=build /app/dist ./
+ENV NODE_ENV=production PORT=8080
+USER bun
 EXPOSE 8080
+CMD ["bun", "server.js"]

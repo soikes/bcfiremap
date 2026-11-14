@@ -5,12 +5,14 @@ import { logger } from './utils/logger';
 
 const PORT = Number(process.env.PORT ?? 3000);
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+const MAX_REQUEST_BODY_BYTES = 1024;
 
 const store = createBanStore(SERVER_COLLECTORS);
 store.start();
 
 const server = Bun.serve({
   port: PORT,
+  maxRequestBodySize: MAX_REQUEST_BODY_BYTES,
   routes: {
     '/': index,
     '/api/bans': { GET: () => Response.json(store.snapshot()) },
