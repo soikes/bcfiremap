@@ -43,7 +43,7 @@ bun install         # install dependencies
 - `utils/geojson.ts` — converts bans and points to GeoJSON for the map sources
 - `utils/logger.ts` — thin wrapper around `console.log`/`console.error`
 - `types/` — every type file: `LatLng` (`geo.ts`), `FireBan` (`ban.ts`), `SourceStatus`/`BansResponse` (`api.ts`, the shape `/api/bans` returns), `Collector` (`collector.ts`), and the declarations for CSS imports (`css.d.ts`) and the jest-dom test matchers (`matchers.d.ts`). A component's `Props` and other types used by one file only stay in that file
-- `constants/` — map style/camera, fire zones URL and the `SHOW_FIRE_ZONES` flag (`map.ts`), ban colours and labels (`banStyle.ts`)
+- `constants/` — every value used by more than one file, grouped by topic: ban levels and types (`ban.ts`), the `/api/bans` path and load statuses (`api.ts`), the Bun server's port (`server.ts`; `deploy/nginx.conf` repeats it), ban colours and labels (`banStyle.ts`), and map style/camera, fire zones URL and the `SHOW_FIRE_ZONES` flag (`map.ts`). A value used by one file only (a timeout, a collector's own URL) stays at the top of that file. `types/` holds no values: where a type lists allowed values (`BanLevel`, `BanType`, `LoadStatus`), it is derived from the list in `constants/` with a type-only import, so the two can't drift apart
 - `test/` — fixtures and the `bun test` preloads (`happydom.ts`, `testingLibrary.ts`, set in `bunfig.toml`)
 - `bunfig.toml` — test preloads, and which env variables the dev server inlines into the page (`PUBLIC_*`)
 - `.env.template` — defaults for build-time flags (`PUBLIC_EXAMPLE_BANS=false`); a local, gitignored `.env` overrides them, and a shell variable overrides both (`bun run dev` and `bun run build` load the two files with `--env-file`)

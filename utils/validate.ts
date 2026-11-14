@@ -1,5 +1,7 @@
-import { BansResponse, LOAD_STATUSES, SourceStatus } from '../types/api';
-import { BAN_LEVELS, BAN_TYPES, FireBan } from '../types/ban';
+import { LOAD_STATUSES } from '../constants/api';
+import { BAN_LEVELS, BAN_TYPES } from '../constants/ban';
+import { BansResponse, SourceStatus } from '../types/api';
+import { FireBan } from '../types/ban';
 import { logger } from './logger';
 
 type Fields = Record<string, unknown>;

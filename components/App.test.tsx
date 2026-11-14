@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, mock } from 'bun:test';
 import { ReactNode } from 'react';
 import { PROVINCIAL_URL, provincialCollector } from '../collectors/provincial';
-import { SERVER_BANS_URL } from '../hooks/useBans';
+import { BANS_API_PATH } from '../constants/api';
 import { BCWS_2022_FEED } from '../test/bcws2022';
 
 interface FakeMapProps {
@@ -77,7 +77,7 @@ afterEach(() => {
 
 describe('App when every source loads', () => {
   it('shows no banner, and lists the bans at a tapped point', async () => {
-    route({ [PROVINCIAL_URL]: BCWS_FEED, [SERVER_BANS_URL]: SERVER_EMPTY });
+    route({ [PROVINCIAL_URL]: BCWS_FEED, [BANS_API_PATH]: SERVER_EMPTY });
     const user = renderApp();
 
     await user.click(screen.getByText('tap inside'));
@@ -88,7 +88,7 @@ describe('App when every source loads', () => {
   });
 
   it('says there are no bans at a point outside every ban area', async () => {
-    route({ [PROVINCIAL_URL]: BCWS_FEED, [SERVER_BANS_URL]: SERVER_EMPTY });
+    route({ [PROVINCIAL_URL]: BCWS_FEED, [BANS_API_PATH]: SERVER_EMPTY });
     const user = renderApp();
     await screen.findByText('tap inside');
     await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledTimes(2));
@@ -101,7 +101,7 @@ describe('App when every source loads', () => {
 
 describe('App when a source fails', () => {
   it('names the BC Wildfire Service in a banner, keeps the map, and warns in the panel', async () => {
-    route({ [PROVINCIAL_URL]: unreachable, [SERVER_BANS_URL]: SERVER_EMPTY });
+    route({ [PROVINCIAL_URL]: unreachable, [BANS_API_PATH]: SERVER_EMPTY });
     const user = renderApp();
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
@@ -117,7 +117,7 @@ describe('App when a source fails', () => {
   });
 
   it('still shows the provincial bans when the server is down, with a warning', async () => {
-    route({ [PROVINCIAL_URL]: BCWS_FEED, [SERVER_BANS_URL]: unreachable });
+    route({ [PROVINCIAL_URL]: BCWS_FEED, [BANS_API_PATH]: unreachable });
     const user = renderApp();
 
     expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't load BC Fire Bans server.");
@@ -129,7 +129,7 @@ describe('App when a source fails', () => {
   });
 
   it('treats an ArcGIS error answer as a failed source', async () => {
-    route({ [PROVINCIAL_URL]: answers({ error: { code: 500, message: 'Service unavailable' } }), [SERVER_BANS_URL]: SERVER_EMPTY });
+    route({ [PROVINCIAL_URL]: answers({ error: { code: 500, message: 'Service unavailable' } }), [BANS_API_PATH]: SERVER_EMPTY });
     renderApp();
 
     expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't load BC Wildfire Service.");
@@ -152,7 +152,7 @@ describe('App when everything fails', () => {
   });
 
   it('does not crash when both sources answer with garbage', async () => {
-    route({ [PROVINCIAL_URL]: answers('<html>Bad Gateway</html>'), [SERVER_BANS_URL]: answers({}) });
+    route({ [PROVINCIAL_URL]: answers('<html>Bad Gateway</html>'), [BANS_API_PATH]: answers({}) });
     renderApp();
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
@@ -164,7 +164,7 @@ describe('App when everything fails', () => {
 
 describe('App while sources are loading', () => {
   it('shows no banner and says the data is loading', async () => {
-    route({ [PROVINCIAL_URL]: hangs, [SERVER_BANS_URL]: hangs });
+    route({ [PROVINCIAL_URL]: hangs, [BANS_API_PATH]: hangs });
     const user = renderApp();
 
     await user.click(screen.getByText('tap inside'));
@@ -176,7 +176,7 @@ describe('App while sources are loading', () => {
 
 describe('App while a source is retried', () => {
   it('shows a retrying banner, then removes it and shows the bans when the retry succeeds', async () => {
-    route({ [PROVINCIAL_URL]: failsThenAnswers(1, BCWS_2022_FEED), [SERVER_BANS_URL]: SERVER_EMPTY });
+    route({ [PROVINCIAL_URL]: failsThenAnswers(1, BCWS_2022_FEED), [BANS_API_PATH]: SERVER_EMPTY });
     const user = renderApp({ retry: 1, retryDelay: 300 });
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
@@ -189,7 +189,7 @@ describe('App while a source is retried', () => {
   });
 
   it('says the source is being retried in the panel while the retry is pending', async () => {
-    route({ [PROVINCIAL_URL]: unreachable, [SERVER_BANS_URL]: SERVER_EMPTY });
+    route({ [PROVINCIAL_URL]: unreachable, [BANS_API_PATH]: SERVER_EMPTY });
     const user = renderApp({ retry: 1, retryDelay: 5000 });
     await screen.findByRole('alert');
 
@@ -200,7 +200,7 @@ describe('App while a source is retried', () => {
   });
 
   it('switches from the retrying message to the missing-bans message once the retries run out', async () => {
-    route({ [PROVINCIAL_URL]: unreachable, [SERVER_BANS_URL]: SERVER_EMPTY });
+    route({ [PROVINCIAL_URL]: unreachable, [BANS_API_PATH]: SERVER_EMPTY });
     renderApp({ retry: 1, retryDelay: 200 });
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Retrying…');
@@ -214,7 +214,7 @@ describe('App while a source is retried', () => {
   });
 
   it('names the server in the retrying banner while a request to it is retried', async () => {
-    route({ [PROVINCIAL_URL]: BCWS_FEED, [SERVER_BANS_URL]: unreachable });
+    route({ [PROVINCIAL_URL]: BCWS_FEED, [BANS_API_PATH]: unreachable });
     renderApp({ retry: 1, retryDelay: 5000 });
 
     expect(await screen.findByRole('alert')).toHaveTextContent(

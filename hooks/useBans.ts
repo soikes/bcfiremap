@@ -1,13 +1,12 @@
 import { Query, useQueries, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import { BROWSER_COLLECTORS } from '../collectors/browser';
+import { BANS_API_PATH } from '../constants/api';
 import { BansResponse, SourceStatus } from '../types/api';
 import { FireBan } from '../types/ban';
 import { Collector } from '../types/collector';
 import { fetchJson } from '../utils/fetchJson';
 import { parseBansResponse, validBans } from '../utils/validate';
-
-export const SERVER_BANS_URL = '/api/bans';
 
 const SERVER_REFRESH_MS = 5 * 60 * 1000;
 const SERVER_WAITING_MS = 5 * 1000;
@@ -62,7 +61,7 @@ export function useBans(collectors: Collector[] = BROWSER_COLLECTORS): BansRespo
 
   const server = useQuery({
     queryKey: ['server-bans'],
-    queryFn: async ({ signal }) => parseBansResponse(await fetchJson(SERVER_BANS_URL, signal)),
+    queryFn: async ({ signal }) => parseBansResponse(await fetchJson(BANS_API_PATH, signal)),
     refetchInterval: serverRefetchInterval,
   });
 

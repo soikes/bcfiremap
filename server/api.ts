@@ -1,3 +1,4 @@
+import { BANS_API_PATH } from '../constants/api';
 import { Collector } from '../types/collector';
 import { createBanStore } from './banStore';
 
@@ -6,6 +7,6 @@ export function apiRoutes(collectors: Collector[]) {
   const store = createBanStore(collectors);
   store.start();
   return {
-    '/api/bans': { GET: () => Response.json(store.snapshot()) },
+    [BANS_API_PATH]: { GET: () => Response.json(store.snapshot()) },
   };
 }

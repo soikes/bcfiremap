@@ -1,14 +1,14 @@
 import { SERVER_COLLECTORS } from '../collectors/server';
+import { API_PORT } from '../constants/server';
 import { logger } from '../utils/logger';
 import { apiRoutes } from './api';
 
 const HOSTNAME = '127.0.0.1';
-const PORT = Number(process.env.PORT ?? 3000);
 const MAX_REQUEST_BODY_BYTES = 1024;
 
 const server = Bun.serve({
   hostname: HOSTNAME,
-  port: PORT,
+  port: API_PORT,
   maxRequestBodySize: MAX_REQUEST_BODY_BYTES,
   routes: apiRoutes(SERVER_COLLECTORS),
 });

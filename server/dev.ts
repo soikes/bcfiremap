@@ -1,12 +1,11 @@
 import { SERVER_COLLECTORS } from '../collectors/server';
+import { API_PORT } from '../constants/server';
 import { logger } from '../utils/logger';
 import index from '../web/index.html';
 import { apiRoutes } from './api';
 
-const PORT = Number(process.env.PORT ?? 3000);
-
 const server = Bun.serve({
-  port: PORT,
+  port: API_PORT,
   routes: { '/': index, ...apiRoutes(SERVER_COLLECTORS) },
   development: { hmr: true, console: true },
 });

@@ -2,10 +2,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test';
 import { ReactNode } from 'react';
+import { BANS_API_PATH } from '../constants/api';
 import { makeBan, makeSource } from '../test/fixtures';
 import { FireBan } from '../types/ban';
 import { Collector } from '../types/collector';
-import { SERVER_BANS_URL, useBans } from './useBans';
+import { useBans } from './useBans';
 
 const realFetch = globalThis.fetch;
 
@@ -124,7 +125,7 @@ describe('useBans server sources', () => {
 
     await waitFor(() => expect(result.current.bans).toHaveLength(2));
 
-    expect(fetchMock).toHaveBeenCalledWith(SERVER_BANS_URL, expect.anything());
+    expect(fetchMock).toHaveBeenCalledWith(BANS_API_PATH, expect.anything());
     expect(result.current.bans.map(ban => ban.id)).toEqual(['a1', 's1']);
     expect(result.current.sources.map(source => source.id)).toEqual(['a', 'muni']);
   });
