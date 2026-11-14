@@ -2,6 +2,7 @@ import { Collector } from '../collectors/types';
 import { BansResponse, LoadStatus } from '../types/api';
 import { FireBan } from '../types/ban';
 import { logger } from '../utils/logger';
+import { validBans } from '../utils/validate';
 
 interface Entry {
   bans: FireBan[];
@@ -44,7 +45,7 @@ export function createBanStore(collectors: Collector[], { retries = 3, retryDela
   /** Runs one collector and records its bans, or marks it failed while keeping its previous bans. */
   async function refresh(collector: Collector): Promise<void> {
     try {
-      const bans = await withRetry(() => collector.collect(), retries, retryDelayMs);
+      const bans = validBans(await withRetry(() => collector.collect(), retries, retryDelayMs), collector.id);
       entries.set(collector.id, { bans, status: 'success', hasData: true, updatedAt: Date.now() });
       logger.log(`[banStore] ${collector.id} refreshed`, bans.length, 'bans');
     } catch (error) {

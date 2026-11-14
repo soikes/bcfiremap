@@ -10,12 +10,22 @@ const LEVEL_ORDER: Record<BanLevel, number> = {
   municipal: 2,
 };
 
+/** True if the ban's area contains the location; false, with a logged error, if its geometry can't be checked. */
+function covers(ban: FireBan, location: LatLng): boolean {
+  try {
+    return pointInGeometry(location, ban.geometry);
+  } catch (error) {
+    logger.error(`[useFireBans] skipping ban ${ban.id} with an unreadable geometry`, error);
+    return false;
+  }
+}
+
 /** Returns the bans whose area contains `location`, broadest first; empty when `location` is null. */
 export function useFireBans(bans: FireBan[], location: LatLng | null): FireBan[] {
   return useMemo(() => {
     if (!location) return [];
     const hits = bans
-      .filter(ban => pointInGeometry(location, ban.geometry))
+      .filter(ban => covers(ban, location))
       .sort((a, b) => LEVEL_ORDER[a.level] - LEVEL_ORDER[b.level]);
     logger.log('[useFireBans] bans at', location, hits.map(ban => ban.id));
     return hits;

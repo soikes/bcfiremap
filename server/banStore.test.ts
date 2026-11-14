@@ -81,6 +81,24 @@ describe('createBanStore', () => {
     expect(sources[0]).toMatchObject({ status: 'error', hasData: true, updatedAt: goodTime });
   });
 
+  it('marks a collector that returns something other than a list as failed', async () => {
+    const broken = collector('broken', async () => ({ features: [] }) as unknown as FireBan[]);
+    const store = createBanStore([broken], noRetries);
+
+    await store.refresh(broken);
+
+    expect(store.snapshot()).toMatchObject({ bans: [], sources: [{ id: 'broken', status: 'error', hasData: false }] });
+  });
+
+  it('drops malformed bans from a collector and keeps its valid ones', async () => {
+    const messy = collector('messy', async () => [makeBan({ id: 'ok' }), { id: 'bad' } as unknown as FireBan]);
+    const store = createBanStore([messy], noRetries);
+
+    await store.refresh(messy);
+
+    expect(store.snapshot().bans.map(ban => ban.id)).toEqual(['ok']);
+  });
+
   it('retries a failing collector before giving up', async () => {
     let calls = 0;
     const flaky = collector('flaky', async () => {

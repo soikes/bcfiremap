@@ -1,5 +1,5 @@
 import { renderHook } from '@testing-library/react';
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it, spyOn } from 'bun:test';
 import { SAMPLE_BANS } from '../test/fixtures';
 import { FireBan } from '../types/ban';
 import { LatLng } from '../types/geo';
@@ -42,6 +42,15 @@ describe('useFireBans', () => {
       'rd-thompson-nicola',
       'muni-kelowna',
     ]);
+  });
+
+  it('skips a ban whose geometry cannot be read and keeps the others', () => {
+    const consoleError = spyOn(console, 'error').mockImplementation(() => {});
+    const broken = { ...SAMPLE_BANS[0], id: 'broken', geometry: { type: 'Polygon', coordinates: [5] } } as unknown as FireBan;
+
+    expect(idsAt(KELOWNA, [broken, ...SAMPLE_BANS])).toEqual(['provincial-okanagan-fc', 'rd-thompson-nicola', 'muni-kelowna']);
+    expect(consoleError).toHaveBeenCalled();
+    consoleError.mockRestore();
   });
 
   it('keeps the same result while the inputs are unchanged', () => {

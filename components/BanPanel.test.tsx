@@ -4,7 +4,7 @@ import { describe, expect, it, mock } from 'bun:test';
 import { makeBan, makeSource } from '../test/fixtures';
 import { SourceStatus } from '../types/api';
 import { FireBan } from '../types/ban';
-import { BanPanel } from './BanPanel';
+import { BanPanel, BanPanelFallback } from './BanPanel';
 
 const ok = makeSource();
 
@@ -36,10 +36,57 @@ describe('BanPanel title', () => {
     expect(screen.queryByText('No fire bans found at this location')).not.toBeInTheDocument();
   });
 
-  it('says a source could not be checked rather than claiming there are no bans', () => {
-    renderPanel([], [makeSource({ status: 'error', hasData: false })]);
-    expect(screen.getByText("Couldn't check every source")).toBeInTheDocument();
+  it('says no bans were found only in the sources that loaded when a source failed', () => {
+    renderPanel([], [ok, makeSource({ id: 'down', status: 'error', hasData: false })]);
+    expect(screen.getByText('No fire bans found in the sources that loaded')).toBeInTheDocument();
     expect(screen.queryByText('No fire bans found at this location')).not.toBeInTheDocument();
+  });
+
+  it('says data is loading while one source loads and another has failed', () => {
+    renderPanel([], [makeSource({ id: 'slow', status: 'pending', hasData: false }), makeSource({ id: 'down', status: 'error', hasData: false })]);
+    expect(screen.getByText('Loading ban data…')).toBeInTheDocument();
+  });
+
+  it('counts the bans found even when every other source failed', () => {
+    renderPanel([makeBan()], [makeSource({ id: 'down', status: 'error', hasData: false })]);
+    expect(screen.getByText('1 fire ban in effect')).toBeInTheDocument();
+  });
+});
+
+describe('BanPanel failure warning', () => {
+  const warning = "⚠ Some sources couldn't be checked, so bans may be missing.";
+
+  it('warns that bans may be missing when a source failed, even if bans were found', () => {
+    renderPanel([makeBan()], [ok, makeSource({ id: 'down', status: 'error', hasData: false })]);
+    expect(screen.getByText('1 fire ban in effect')).toBeInTheDocument();
+    expect(screen.getByText(warning)).toBeInTheDocument();
+  });
+
+  it('warns when no bans were found and a source failed', () => {
+    renderPanel([], [makeSource({ status: 'error', hasData: false })]);
+    expect(screen.getByText(warning)).toBeInTheDocument();
+  });
+
+  it('does not warn when every source loaded', () => {
+    renderPanel([makeBan()], [ok]);
+    expect(screen.queryByText(warning)).not.toBeInTheDocument();
+  });
+
+  it('does not warn when a refresh failed but older data is still shown', () => {
+    renderPanel([makeBan()], [makeSource({ status: 'error', hasData: true })]);
+    expect(screen.queryByText(warning)).not.toBeInTheDocument();
+  });
+
+  it('does not warn while sources are still loading', () => {
+    renderPanel([], [makeSource({ status: 'pending', hasData: false })]);
+    expect(screen.queryByText(warning)).not.toBeInTheDocument();
+  });
+});
+
+describe('BanPanelFallback', () => {
+  it('asks the user to tap the map again', () => {
+    render(<BanPanelFallback />);
+    expect(screen.getByText("⚠ Couldn't show the bans for this location. Tap the map to try again.")).toBeInTheDocument();
   });
 });
 

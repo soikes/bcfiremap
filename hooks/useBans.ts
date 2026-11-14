@@ -5,6 +5,7 @@ import { Collector } from '../collectors/types';
 import { BansResponse, LoadStatus, SourceStatus } from '../types/api';
 import { FireBan } from '../types/ban';
 import { fetchJson } from '../utils/fetchJson';
+import { parseBansResponse, validBans } from '../utils/validate';
 
 export const SERVER_BANS_URL = '/api/bans';
 
@@ -14,7 +15,7 @@ const SERVER_WAITING_MS = 5 * 1000;
 /** Stands in for the server's sources until the server has answered. */
 const serverPlaceholder = (status: LoadStatus): SourceStatus => ({
   id: 'server',
-  name: 'Server sources',
+  name: 'BC Fire Bans server',
   coverage: "Bans gathered on a schedule by this site's server.",
   attribution: '',
   status,
@@ -47,7 +48,7 @@ export function useBans(collectors: Collector[] = BROWSER_COLLECTORS): BansRespo
   const browser = useQueries({
     queries: collectors.map(collector => ({
       queryKey: ['bans', collector.id],
-      queryFn: ({ signal }: { signal: AbortSignal }) => collector.collect(signal),
+      queryFn: async ({ signal }: { signal: AbortSignal }) => validBans(await collector.collect(signal), collector.id),
       refetchInterval: collector.refetchIntervalMs,
       staleTime: collector.refetchIntervalMs / 2,
     })),
@@ -56,7 +57,7 @@ export function useBans(collectors: Collector[] = BROWSER_COLLECTORS): BansRespo
 
   const server = useQuery({
     queryKey: ['server-bans'],
-    queryFn: async ({ signal }) => (await fetchJson(SERVER_BANS_URL, signal)) as BansResponse,
+    queryFn: async ({ signal }) => parseBansResponse(await fetchJson(SERVER_BANS_URL, signal)),
     refetchInterval: serverRefetchInterval,
   });
 

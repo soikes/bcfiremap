@@ -45,6 +45,16 @@
   cursor: pointer;
 }
 
+.ban-panel-warning {
+  margin: -6px 0 12px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #fff6d6;
+  color: #5c4400;
+  font-size: 12px;
+  line-height: 17px;
+}
+
 .ban-panel-scroll {
   min-height: 0;
   overflow-y: auto;

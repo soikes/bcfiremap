@@ -1,5 +1,6 @@
 import { SourceStatus } from '../types/api';
 import { FireBan } from '../types/ban';
+import { failedSources } from '../utils/sourceStatus';
 import { BanCard } from './BanCard';
 import './BanPanel.css';
 
@@ -13,7 +14,7 @@ interface Props {
 function panelTitle(bans: FireBan[], sources: SourceStatus[]): string {
   if (bans.length > 0) return `${bans.length} fire ban${bans.length !== 1 ? 's' : ''} in effect`;
   if (sources.some(s => s.status === 'pending' && !s.hasData)) return 'Loading ban data…';
-  if (sources.some(s => s.status === 'error' && !s.hasData)) return "Couldn't check every source";
+  if (failedSources(sources).length > 0) return 'No fire bans found in the sources that loaded';
   return 'No fire bans found at this location';
 }
 
@@ -29,9 +30,21 @@ function sourceLine(source: SourceStatus): string {
   return `${source.name}: updated ${time}`;
 }
 
+/** Stand-in for the panel after it failed to render, asking the user to tap again. */
+export function BanPanelFallback() {
+  return (
+    <div className="ban-panel">
+      <section className="ban-panel-sheet">
+        <p className="ban-panel-warning">⚠ Couldn't show the bans for this location. Tap the map to try again.</p>
+      </section>
+    </div>
+  );
+}
+
 /** Bottom sheet listing the fire bans in effect at the selected location, and which sources were checked. */
 export function BanPanel({ bans, sources, onClose }: Props) {
   const attributions = [...new Set(sources.map(s => s.attribution).filter(Boolean))];
+  const someFailed = failedSources(sources).length > 0;
 
   return (
     <div className="ban-panel">
@@ -42,6 +55,9 @@ export function BanPanel({ bans, sources, onClose }: Props) {
             ✕
           </button>
         </header>
+        {someFailed ? (
+          <p className="ban-panel-warning">⚠ Some sources couldn't be checked, so bans may be missing.</p>
+        ) : null}
         <div className="ban-panel-scroll">
           {bans.map(ban => (
             <BanCard key={ban.id} ban={ban} />

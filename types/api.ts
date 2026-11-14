@@ -1,6 +1,8 @@
 import { FireBan } from './ban';
 
-export type LoadStatus = 'pending' | 'success' | 'error';
+export const LOAD_STATUSES = ['pending', 'success', 'error'] as const;
+
+export type LoadStatus = (typeof LOAD_STATUSES)[number];
 
 export interface SourceStatus {
   id: string;
