@@ -5,19 +5,29 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Stack
 
 - **React 19** with `react-dom`, web only
-- **Bun 1.3.10**: package manager, runtime, bundler, dev server and test runner (use `bun` for everything, never `npm` or `yarn`). The same version is pinned in the `Dockerfile`, CI and `@types/bun`; change them together.
+- **mise**: installs the dev tools at the versions in `mise.toml` (Bun, flyctl, the Docker CLI, colima and lima), locked with checksums in `mise.lock` for macOS arm64 and Linux x64; loads the env files; and runs the project tasks. After changing a version in `mise.toml`, run `mise lock --platform macos-arm64,linux-x64` and commit both files. CI installs from the lockfile with `jdx/mise-action`.
+- **Bun 1.3.10**: package manager, runtime, bundler, dev server and test runner (use `bun` for everything, never `npm` or `yarn`). The same version is pinned in `mise.toml`, the `Dockerfile` and `@types/bun`; change them together.
 - **MapLibre**: `react-map-gl/maplibre` + `maplibre-gl` (pinned 5.24.1); OSM Bright basemap style on OpenFreeMap tiles
 - **TypeScript**: strict mode
 
 ## Commands
 
+Run project tasks through mise (`mise tasks ls` lists them); it uses the locked tool versions and loads the env files:
+
 ```sh
-bun run dev         # dev server on http://localhost:3000 (PORT to change): page with hot reload, plus the API
-bun run build       # production build: static site to dist/public, API server to dist/server
-bun run test        # bun test with happy-dom and React Testing Library
-bun run typecheck   # tsc --noEmit
-bun install         # install dependencies
+mise install --locked   # install the tools exactly as mise.lock records them
+mise run dev            # build the production image and run it in Docker (nginx + Bun) on http://localhost:8080; Ctrl+C stops it
+mise run dev:hot        # Bun dev server on http://localhost:3000 with hot reload, plus the API
+mise run check          # typecheck and test (what CI runs)
+mise run test           # bun test with happy-dom and React Testing Library
+mise run typecheck      # tsc --noEmit
+mise run build          # build the image on Fly's remote builder without deploying
+mise run deploy         # build on Fly and deploy (asks first; never run without being asked)
 ```
+
+`mise run dev` starts colima (the Docker VM) if it isn't running. The underlying `bun run dev|build|test|typecheck` scripts in `package.json` still work on their own.
+
+Env precedence is the same with and without mise: a shell variable wins, then `.env`, then `.env.template`. mise loads both files under `[env]`, which would normally override the shell, so each overridable variable also gets a line in `mise.toml` that prefers the shell's value (see `PUBLIC_EXAMPLE_BANS`); add one for each new variable.
 
 ## Architecture
 
@@ -73,9 +83,9 @@ Where a collector runs depends on its source's licence. Both BC ArcGIS sources (
 
 `collectors/provincial.ts` reads the BC Wildfire Service "Bans and Prohibition Areas" ArcGIS layer. It excludes municipal and regional district bans, and the panel says so. The layer was empty (off-season) when the collector was written, so the free-text `TYPE`, `CATEGORY` and `ACCESS_PROHIBITION_DESCRIPTION` values are unverified: the card shows the source's own text and `classifyBan` falls back to `other`. Geometry is simplified server-side (`maxAllowableOffset=0.001`, about 100 m), so lookups near a boundary are approximate.
 
-To add a source: write a `Collector` in `collectors/` that returns `FireBan[]` (reuse `fetchJson`, validate the response, skip bad features instead of throwing), then add it to `BROWSER_COLLECTORS` (`collectors/browser.ts`) or `SERVER_COLLECTORS` (`collectors/server.ts`) according to its licence. A browser source's host must also be added to the CSP. Before relying on server collectors in production, keep one machine running: Fly stops idle machines (`auto_stop_machines`), which pauses the schedule, so set `min_machines_running = 1` and run a single machine (`fly scale count 1`) so sources aren't fetched twice. In dev, `bun --hot` re-runs `server/dev.ts` when server code changes and the earlier schedules keep running, so restart `bun run dev` after editing server code.
+To add a source: write a `Collector` in `collectors/` that returns `FireBan[]` (reuse `fetchJson`, validate the response, skip bad features instead of throwing), then add it to `BROWSER_COLLECTORS` (`collectors/browser.ts`) or `SERVER_COLLECTORS` (`collectors/server.ts`) according to its licence. A browser source's host must also be added to the CSP. Before relying on server collectors in production, keep one machine running: Fly stops idle machines (`auto_stop_machines`), which pauses the schedule, so set `min_machines_running = 1` and run a single machine (`fly scale count 1`) so sources aren't fetched twice. In dev, `bun --hot` re-runs `server/dev.ts` when server code changes and the earlier schedules keep running, so restart `mise run dev:hot` after editing server code.
 
-Set `PUBLIC_EXAMPLE_BANS=true` (in the shell or in `.env`) when running `bun run dev` or `bun run build` to add the fake example collector. The bundler replaces `process.env.PUBLIC_EXAMPLE_BANS` with its value at build time; `.env.template` sets it to `false` so it is always defined (left unset, the reference would stay in the page and fail in the browser, where there is no `process`). `collectors/browser.ts` loads the example with a `require` inside an `if` on that variable, so without the flag the bundler drops the branch and neither the example collector nor `polygon-clipping` is in the bundle (checked on a production build). Keep the `require` in that form, and don't set the variable for real production builds. `fly.toml` currently sets it as a build arg (passed through the `Dockerfile`) so the deployed site shows the example data; remove it from `[build.args]` to turn that off.
+Set `PUBLIC_EXAMPLE_BANS=true` (in the shell or in `.env`) when running `mise run dev`, `mise run dev:hot` or `bun run build` to add the fake example collector. The bundler replaces `process.env.PUBLIC_EXAMPLE_BANS` with its value at build time; `.env.template` sets it to `false` so it is always defined (left unset, the reference would stay in the page and fail in the browser, where there is no `process`). `collectors/browser.ts` loads the example with a `require` inside an `if` on that variable, so without the flag the bundler drops the branch and neither the example collector nor `polygon-clipping` is in the bundle (checked on a production build). Keep the `require` in that form, and don't set the variable for real production builds. `fly.toml` currently sets it as a build arg (passed through the `Dockerfile`) so the deployed site shows the example data; remove it from `[build.args]` to turn that off.
 
 ## Deploy
 
@@ -83,7 +93,7 @@ nginx sits in front of the Bun API server, in one container. `Dockerfile` builds
 
 ## Reading Logs
 
-All logging goes through `utils/logger.ts`, which writes to `console` only. Server logs appear in the terminal running `bun run dev`; in dev, the browser's console output is echoed there too. In production, browser logs appear only in the browser console. To read logs, run the dev server in the background with Bash and read its output, or ask the user to paste the terminal output.
+All logging goes through `utils/logger.ts`, which writes to `console` only. Server logs appear in the terminal running `mise run dev:hot`, where the browser's console output is echoed too, or `mise run dev`, which shows the container's nginx and Bun logs. In production, browser logs appear only in the browser console. To read logs, run the dev server in the background with Bash and read its output, or ask the user to paste the terminal output.
 
 ## Style
 

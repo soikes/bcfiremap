@@ -11,6 +11,7 @@ dist/
 # local env files
 .env
 .env*.local
+mise.local.toml
 
 # typescript
 *.tsbuildinfo

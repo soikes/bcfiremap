@@ -1,0 +1,59 @@
+min_version = "2026.11.0"
+
+[settings]
+lockfile = true
+
+[tools]
+bun = "1.3.10"
+flyctl = "0.5.8"
+docker-cli = "29.9.3"
+colima = "0.10.3"
+lima = "2.3.0"
+
+[env]
+_.file = [".env.template", ".env"]
+PUBLIC_EXAMPLE_BANS = "{{ get_env(name='PUBLIC_EXAMPLE_BANS', default=env.PUBLIC_EXAMPLE_BANS) }}"
+
+[tasks.install]
+description = "Install dependencies exactly as bun.lock records them"
+run = "bun install --frozen-lockfile"
+
+[tasks.dev]
+description = "Build the production image and run it in Docker on http://localhost:8080 (Ctrl+C stops it)"
+depends = ["docker:start"]
+run = [
+  "docker build --build-arg PUBLIC_EXAMPLE_BANS=$PUBLIC_EXAMPLE_BANS -t bcfiremap .",
+  "docker run --rm --init --name bcfiremap-dev -p 8080:8080 bcfiremap",
+]
+
+[tasks."dev:hot"]
+description = "Run the Bun dev server with hot reload on http://localhost:3000"
+depends = ["install"]
+run = "bun run dev"
+
+[tasks."docker:start"]
+description = "Start the colima Docker VM unless it is already running"
+run = "colima status >/dev/null 2>&1 || colima start"
+
+[tasks.test]
+description = "Run the test suite"
+depends = ["install"]
+run = "bun run test"
+
+[tasks.typecheck]
+description = "Typecheck the project"
+depends = ["install"]
+run = "bun run typecheck"
+
+[tasks.check]
+description = "Typecheck and test"
+depends = ["typecheck", "test"]
+
+[tasks.build]
+description = "Build the image on Fly's remote builder without deploying"
+run = "fly deploy --build-only --remote-only"
+
+[tasks.deploy]
+description = "Build on Fly's remote builder and deploy"
+confirm = { message = "Deploy bcfiremap to Fly?", default = "no" }
+run = "fly deploy --remote-only"
