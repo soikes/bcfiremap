@@ -3,9 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "bun --env-file=.env.template --env-file=.env --hot server.ts",
-    "build": "bun --env-file=.env.template --env-file=.env build --target=bun --production --env='PUBLIC_*' --outdir=dist server.ts",
-    "start": "cd dist && NODE_ENV=production bun server.js",
+    "dev": "bun --env-file=.env.template --env-file=.env --hot dev.ts",
+    "build": "bun run build:web && bun run build:server",
+    "build:web": "bun --env-file=.env.template --env-file=.env build --production --env='PUBLIC_*' --outdir=dist/public index.html",
+    "build:server": "bun build --target=bun --production --outdir=dist/server server.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit"
   },

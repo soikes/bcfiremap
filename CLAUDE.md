@@ -12,9 +12,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```sh
-bun run dev         # dev server on http://localhost:3000 (PORT to change) with hot reload
-bun run build       # production build to dist/
-bun run start       # serve the production build (runs from inside dist/, where Bun looks for the bundled files)
+bun run dev         # dev server on http://localhost:3000 (PORT to change): page with hot reload, plus the API
+bun run build       # production build: static site to dist/public, API server to dist/server
 bun run test        # bun test with happy-dom and React Testing Library
 bun run typecheck   # tsc --noEmit
 bun install         # install dependencies
@@ -24,7 +23,9 @@ bun install         # install dependencies
 
 - `index.html` — page shell; Bun bundles `main.tsx` and `index.css` from it
 - `main.tsx` — renders `App` into `#root`
-- `server.ts` — `Bun.serve`: serves the page (an HTML import, bundled on the fly in dev and prebuilt in production) and `/api/bans`, and starts the server collectors
+- `dev.ts` — dev entry: `Bun.serve` with the page (an HTML import, bundled on the fly with hot reload) and the API routes
+- `server.ts` — production entry: `Bun.serve` on `127.0.0.1` with only the API routes; nginx serves the page
+- `server/api.ts` — starts the server collectors and returns the `/api/bans` route, shared by both entries
 - `server/banStore.ts` — runs the server collectors on their schedules with retries, keeps the last good data per source, and builds the `/api/bans` response
 - `App.tsx` — root component; provides the react-query client, owns the selected-location state and composes the map layers and `BanPanel`
 - `components/BaseMap.tsx` — full-size MapLibre map that reports clicks as a `LatLng`
@@ -61,13 +62,13 @@ Where a collector runs depends on its source's licence. Both BC ArcGIS sources (
 
 `collectors/provincial.ts` reads the BC Wildfire Service "Bans and Prohibition Areas" ArcGIS layer. It excludes municipal and regional district bans, and the panel says so. The layer was empty (off-season) when the collector was written, so the free-text `TYPE`, `CATEGORY` and `ACCESS_PROHIBITION_DESCRIPTION` values are unverified: the card shows the source's own text and `classifyBan` falls back to `other`. Geometry is simplified server-side (`maxAllowableOffset=0.001`, about 100 m), so lookups near a boundary are approximate.
 
-To add a source: write a `Collector` in `collectors/` that returns `FireBan[]` (reuse `fetchJson`, validate the response, skip bad features instead of throwing), then add it to `BROWSER_COLLECTORS` (`collectors/browser.ts`) or `SERVER_COLLECTORS` (`collectors/server.ts`) according to its licence. A browser source's host must also be added to the CSP. Before relying on server collectors in production, keep one machine running: Fly stops idle machines (`auto_stop_machines`), which pauses the schedule, so set `min_machines_running = 1` and run a single machine (`fly scale count 1`) so sources aren't fetched twice. In dev, `bun --hot` re-runs `server.ts` when server code changes and the earlier schedules keep running, so restart `bun run dev` after editing server code.
+To add a source: write a `Collector` in `collectors/` that returns `FireBan[]` (reuse `fetchJson`, validate the response, skip bad features instead of throwing), then add it to `BROWSER_COLLECTORS` (`collectors/browser.ts`) or `SERVER_COLLECTORS` (`collectors/server.ts`) according to its licence. A browser source's host must also be added to the CSP. Before relying on server collectors in production, keep one machine running: Fly stops idle machines (`auto_stop_machines`), which pauses the schedule, so set `min_machines_running = 1` and run a single machine (`fly scale count 1`) so sources aren't fetched twice. In dev, `bun --hot` re-runs `dev.ts` when server code changes and the earlier schedules keep running, so restart `bun run dev` after editing server code.
 
 Set `PUBLIC_EXAMPLE_BANS=true` (in the shell or in `.env`) when running `bun run dev` or `bun run build` to add the fake example collector. The bundler replaces `process.env.PUBLIC_EXAMPLE_BANS` with its value at build time; `.env.template` sets it to `false` so it is always defined (left unset, the reference would stay in the page and fail in the browser, where there is no `process`). `collectors/browser.ts` loads the example with a `require` inside an `if` on that variable, so without the flag the bundler drops the branch and neither the example collector nor `polygon-clipping` is in the bundle (checked on a production build). Keep the `require` in that form, and don't set the variable for real production builds. `fly.toml` currently sets it as a build arg (passed through the `Dockerfile`) so the deployed site shows the example data; remove it from `[build.args]` to turn that off.
 
 ## Deploy
 
-`Dockerfile` builds with `bun run build` and runs `dist/server.js` on a slim Bun image as the `bun` user, on port 8080. `fly.toml` configures Fly.io (`fly deploy`); CI deploys on pushes to `main` after typecheck and tests. The Fly proxy adds the security headers listed in `fly.toml` (incl. the CSP) and compresses responses. The CSP allows only `self` plus `https://tiles.openfreemap.org` (tiles, fonts), `https://openmaptiles.github.io` (map icons) and `https://services6.arcgis.com` (BC Wildfire Service data, fetched by the browser); adding or changing a data or basemap host means updating it. There is no per-IP rate limiting. Bun 1.3.10 sends an `ETag` but no long-lived `Cache-Control` for the content-hashed JS and CSS, so browsers revalidate them.
+nginx sits in front of the Bun API server, in one container. `Dockerfile` builds with `bun run build`, then starts from a non-root nginx image, copies in the `bun` binary, the static site (`dist/public`) and the API server (`dist/server`). `start.sh` runs both processes and exits when either one stops, so Fly restarts the machine. nginx listens on port 8080, serves the static files and proxies `/api/` to Bun on `127.0.0.1:3000`. `nginx.conf` holds per-IP rate limiting, gzip, long-lived caching for content-hashed files and the server settings; `security-headers.conf` holds the response headers incl. the CSP. Keep these in nginx rather than in `fly.toml`, so the app isn't tied to Fly. `fly.toml` configures Fly.io (`fly deploy`); CI deploys on pushes to `main` after typecheck and tests. The CSP allows only `self` plus `https://tiles.openfreemap.org` (tiles, fonts), `https://openmaptiles.github.io` (map icons) and `https://services6.arcgis.com` (BC Wildfire Service data, fetched by the browser); adding or changing a data or basemap host means updating it.
 
 ## Reading Logs
 
