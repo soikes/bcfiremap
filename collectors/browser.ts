@@ -1,5 +1,5 @@
+import { Collector } from '../types/collector';
 import { provincialCollector } from './provincial';
-import { Collector } from './types';
 
 export const BROWSER_COLLECTORS: Collector[] = [provincialCollector];
 

@@ -1,6 +1,6 @@
-import { Collector } from '../collectors/types';
 import { BansResponse, LoadStatus } from '../types/api';
 import { FireBan } from '../types/ban';
+import { Collector } from '../types/collector';
 import { logger } from '../utils/logger';
 import { validBans } from '../utils/validate';
 

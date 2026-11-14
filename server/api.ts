@@ -1,4 +1,4 @@
-import { Collector } from '../collectors/types';
+import { Collector } from '../types/collector';
 import { createBanStore } from './banStore';
 
 /** Starts the given collectors' schedules and returns the API routes that serve their bans. */

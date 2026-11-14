@@ -2,9 +2,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test';
 import { ReactNode } from 'react';
-import { Collector } from '../collectors/types';
 import { makeBan, makeSource } from '../test/fixtures';
 import { FireBan } from '../types/ban';
+import { Collector } from '../types/collector';
 import { SERVER_BANS_URL, useBans } from './useBans';
 
 const realFetch = globalThis.fetch;

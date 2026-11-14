@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test';
-import { Collector } from '../collectors/types';
 import { makeBan } from '../test/fixtures';
 import { FireBan } from '../types/ban';
+import { Collector } from '../types/collector';
 import { createBanStore } from './banStore';
 
 const collector = (id: string, collect: () => Promise<FireBan[]>): Collector => ({

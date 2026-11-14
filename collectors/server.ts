@@ -1,3 +1,3 @@
-import { Collector } from './types';
+import { Collector } from '../types/collector';
 
 export const SERVER_COLLECTORS: Collector[] = [];

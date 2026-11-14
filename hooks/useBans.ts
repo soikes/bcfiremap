@@ -1,9 +1,9 @@
 import { Query, useQueries, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import { BROWSER_COLLECTORS } from '../collectors/browser';
-import { Collector } from '../collectors/types';
-import { BansResponse, LoadStatus, SourceStatus } from '../types/api';
+import { BansResponse, SourceStatus } from '../types/api';
 import { FireBan } from '../types/ban';
+import { Collector } from '../types/collector';
 import { fetchJson } from '../utils/fetchJson';
 import { parseBansResponse, validBans } from '../utils/validate';
 

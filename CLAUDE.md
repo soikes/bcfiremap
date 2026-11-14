@@ -33,7 +33,7 @@ bun install         # install dependencies
 - `components/BanPanel.tsx`, `BanCard.tsx` — results panel (centred and width-limited on wide screens); lists the bans at the tapped point plus each source's status, coverage and attribution, with a warning when a source failed
 - `components/SourceBanner.tsx` — banner over the map naming the sources being retried ("Retrying…") and those that failed with no data once retries ran out, so users know bans may be missing before they tap
 - `components/ErrorBoundary.tsx` — catches render errors in the ban layers and the panel so the base map keeps working; tries again when its `resetKey` changes
-- `collectors/` — one `Collector` per data source (`types.ts`): `collect()` fetches and normalizes to `FireBan[]`. `browser.ts` lists the collectors that run in each visitor's browser, `server.ts` the ones the server runs (see Fire bans for which goes where). `provincial.ts` is the BC Wildfire Service ArcGIS feed, `example.ts` is fake dev data (made-up bans shaped like the real Kamloops Fire Centre, whose zones are merged into one outline with `polygon-clipping`, and the Penticton Fire Zone, fetched at runtime from the zones service, plus hand-drawn local ones; the real collector does no merging and uses each row's own polygon), `classifyBan.ts` maps free text to a `BanType`
+- `collectors/` — one `Collector` per data source (`types/collector.ts`): `collect()` fetches and normalizes to `FireBan[]`. `browser.ts` lists the collectors that run in each visitor's browser, `server.ts` the ones the server runs (see Fire bans for which goes where). `provincial.ts` is the BC Wildfire Service ArcGIS feed, `example.ts` is fake dev data (made-up bans shaped like the real Kamloops Fire Centre, whose zones are merged into one outline with `polygon-clipping`, and the Penticton Fire Zone, fetched at runtime from the zones service, plus hand-drawn local ones; the real collector does no merging and uses each row's own polygon), `classifyBan.ts` maps free text to a `BanType`
 - `hooks/useBans.ts` — runs the browser collectors on their own schedules (react-query), fetches `/api/bans`, and merges both, keeping the last good data if a refresh fails; a placeholder source stands in for the server until it answers
 - `hooks/useFireBans.ts` — returns the bans whose area contains the selected location, broadest first, using `utils/geometry.ts` (Polygon/MultiPolygon with holes) and `utils/pointInPolygon.ts`
 - `lib/queryClient.ts` — shared react-query client (retries with backoff)
@@ -42,12 +42,11 @@ bun install         # install dependencies
 - `utils/sourceStatus.ts` — which sources failed with no data or are retrying, and joining their names for messages
 - `utils/geojson.ts` — converts bans and points to GeoJSON for the map sources
 - `utils/logger.ts` — thin wrapper around `console.log`/`console.error`
-- `types/` — shared types: `LatLng` (`geo.ts`), `FireBan` (`ban.ts`), and `SourceStatus`/`BansResponse` (`api.ts`, the shape `/api/bans` returns)
+- `types/` — every type file: `LatLng` (`geo.ts`), `FireBan` (`ban.ts`), `SourceStatus`/`BansResponse` (`api.ts`, the shape `/api/bans` returns), `Collector` (`collector.ts`), and the declarations for CSS imports (`css.d.ts`) and the jest-dom test matchers (`matchers.d.ts`). A component's `Props` and other types used by one file only stay in that file
 - `constants/` — map style/camera, fire zones URL and the `SHOW_FIRE_ZONES` flag (`map.ts`), ban colours and labels (`banStyle.ts`)
-- `test/` — fixtures, the `bun test` preloads (`happydom.ts`, `testingLibrary.ts`, set in `bunfig.toml`) and the jest-dom matcher types
+- `test/` — fixtures and the `bun test` preloads (`happydom.ts`, `testingLibrary.ts`, set in `bunfig.toml`)
 - `bunfig.toml` — test preloads, and which env variables the dev server inlines into the page (`PUBLIC_*`)
 - `.env.template` — defaults for build-time flags (`PUBLIC_EXAMPLE_BANS=false`); a local, gitignored `.env` overrides them, and a shell variable overrides both (`bun run dev` and `bun run build` load the two files with `--env-file`)
-- `types/css.d.ts` — lets TypeScript accept CSS imports
 - `assets/` — favicon, source icon art, basemap style
 - `deploy/` — `nginx.conf`, `security-headers.conf` and `start.sh`, used by the `Dockerfile` (see Deploy)
 
