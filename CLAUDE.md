@@ -48,7 +48,7 @@ bun install         # install dependencies
 - `test/` — fixtures and the `bun test` preloads set in `bunfig.toml`: `happydom.ts` (a DOM), `testingLibrary.ts` (matchers, cleanup) and `fakeMapLibre.tsx`, which replaces `react-map-gl/maplibre` in every test (MapLibre needs WebGL). The fake renders sources and layers as nested `div`s (`source-<id>`, `layer-<id>`), records the props each was given in `rendered`, and `clickMap(lat, lng)` clicks the map the way MapLibre reports it
 - `bunfig.toml` — test preloads, and which env variables the dev server inlines into the page (`PUBLIC_*`)
 - `.env.template` — defaults for build-time flags (`PUBLIC_EXAMPLE_BANS=false`); a local, gitignored `.env` overrides them, and a shell variable overrides both (`bun run dev` and `bun run build` load the two files with `--env-file`)
-- `assets/` — favicon, source icon art, basemap style
+- `assets/` — favicon, source icon art, basemap style, and the Work Sans font with its licence (`fonts/`)
 - `deploy/` — `nginx.conf`, `security-headers.conf` and `start.sh`, used by the `Dockerfile` (see Deploy)
 
 A failing source never takes the page down: a source that throws, times out, or returns malformed data is reported as failed (status `error`, no data), the other sources' bans stay on the map, and the banner and panel say which source is missing. Every `SourceStatus` carries `retrying` (its last attempt failed and another is coming): browser sources take it from react-query (`failureCount > 0` while still fetching), server sources from `banStore`, and while a request to the server itself is retried a "BC Fire Bans server" entry is flagged. While retrying, the banner says so instead of saying bans are missing. A refresh that fails after a success keeps the last good data and the panel shows its time. `components/App.test.tsx` checks this end to end with the fake map and `fetch` answered per URL. Bun runs all test files in one process, so a `mock.module` in one test file applies to later files too; put shared fakes in a preload instead.
@@ -58,6 +58,10 @@ Each component's styles live in a plain CSS file next to it (`BanPanel.css`), wi
 ## Data
 
 Fire zone boundaries are not stored in the repo. `components/FireZones.tsx` gives the map a URL (`FIRE_ZONES_URL` in `constants/map.ts`) to the BC government's ArcGIS feature service, and the browser fetches it at runtime. The query asks the server to simplify the geometry (`maxAllowableOffset`), which keeps the response around 280 KB. The service allows cross-origin reads, unlike BC's WFS server. The ArcGIS copy has 31 zones (no Mid Island Fire Zone). The layer is currently off (`SHOW_FIRE_ZONES = false`) pending licensing clarification.
+
+### Font
+
+The app's own text uses [Work Sans](https://fonts.google.com/specimen/Work+Sans), a variable font (weights 100–900) stored in `assets/fonts/` as the Latin and Latin Extended `woff2` files Google Fonts serves, with its licence (`OFL.txt`, SIL Open Font License 1.1, no Reserved Font Name). The licence asks that copies carry the copyright notice and licence: the files carry the notice and licence URL in their metadata, `OFL.txt` sits next to them in the repo and is served at `/fonts/OFL.txt`, and the `@font-face` rules credit both. Those rules live in a `<style>` block in `web/index.html` and load the files from `/fonts/`: from a CSS file, Bun's bundler would inline fonts under 128 KB as `data:` URLs (which the CSP's `font-src 'self'` blocks) or fail to resolve `/fonts/`, while inline styles are left untouched. `bun run build:web` copies `assets/fonts` to `dist/public/fonts`, nginx serves it with a 30-day cache, and `server/dev.ts` serves it in dev. Map labels can't use it: MapLibre draws them with OpenFreeMap's Noto Sans glyphs (see Basemap).
 
 ### Basemap
 

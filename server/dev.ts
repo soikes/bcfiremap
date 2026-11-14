@@ -4,9 +4,20 @@ import { logger } from '../utils/logger';
 import index from '../web/index.html';
 import { apiRoutes } from './api';
 
+const FONTS_DIR = `${import.meta.dir}/../assets/fonts`;
+
+/** Serves each file in assets/fonts at /fonts/<name>, the path the page's CSS loads them from. */
+const fontRoutes = () =>
+  Object.fromEntries(
+    [...new Bun.Glob('*').scanSync(FONTS_DIR)].map(name => [
+      `/fonts/${name}`,
+      () => new Response(Bun.file(`${FONTS_DIR}/${name}`)),
+    ]),
+  );
+
 const server = Bun.serve({
   port: API_PORT,
-  routes: { '/': index, ...apiRoutes(SERVER_COLLECTORS) },
+  routes: { '/': index, ...fontRoutes(), ...apiRoutes(SERVER_COLLECTORS) },
   development: { hmr: true, console: true },
 });
 
