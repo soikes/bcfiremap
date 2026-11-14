@@ -1,18 +1,18 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
+import { SHOW_FIRE_ZONES } from '../constants/map';
+import { useBans } from '../hooks/useBans';
+import { useFireBans } from '../hooks/useFireBans';
+import { queryClient } from '../lib/queryClient';
+import { LatLng } from '../types/geo';
 import './App.css';
-import { BanPanel, BanPanelFallback } from './components/BanPanel';
-import { BanPolygons } from './components/BanPolygons';
-import { BaseMap } from './components/BaseMap';
-import { ErrorBoundary } from './components/ErrorBoundary';
-import { FireZones } from './components/FireZones';
-import { SelectedPin } from './components/SelectedPin';
-import { SourceBanner } from './components/SourceBanner';
-import { SHOW_FIRE_ZONES } from './constants/map';
-import { useBans } from './hooks/useBans';
-import { useFireBans } from './hooks/useFireBans';
-import { queryClient } from './lib/queryClient';
-import { LatLng } from './types/geo';
+import { BanPanel, BanPanelFallback } from './BanPanel';
+import { BanPolygons } from './BanPolygons';
+import { BaseMap } from './BaseMap';
+import { ErrorBoundary } from './ErrorBoundary';
+import { FireZones } from './FireZones';
+import { SelectedPin } from './SelectedPin';
+import { SourceBanner } from './SourceBanner';
 
 interface Props {
   client?: QueryClient;

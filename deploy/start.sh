@@ -1,5 +1,5 @@
 #!/bin/bash
-bun /app/server/server.js &
+bun /app/server/index.js &
 nginx -g 'daemon off;' &
 wait -n
 exit $?

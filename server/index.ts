@@ -1,6 +1,6 @@
-import { SERVER_COLLECTORS } from './collectors/server';
-import { apiRoutes } from './server/api';
-import { logger } from './utils/logger';
+import { SERVER_COLLECTORS } from '../collectors/server';
+import { logger } from '../utils/logger';
+import { apiRoutes } from './api';
 
 const HOSTNAME = '127.0.0.1';
 const PORT = Number(process.env.PORT ?? 3000);

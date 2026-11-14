@@ -3,9 +3,9 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, mock } from 'bun:test';
 import { ReactNode } from 'react';
-import { PROVINCIAL_URL, provincialCollector } from './collectors/provincial';
-import { SERVER_BANS_URL } from './hooks/useBans';
-import { BCWS_2022_FEED } from './test/bcws2022';
+import { PROVINCIAL_URL, provincialCollector } from '../collectors/provincial';
+import { SERVER_BANS_URL } from '../hooks/useBans';
+import { BCWS_2022_FEED } from '../test/bcws2022';
 
 interface FakeMapProps {
   onClick: (e: { lngLat: { lat: number; lng: number } }) => void;
@@ -33,7 +33,7 @@ mock.module('react-map-gl/maplibre', () => ({
   Layer: () => null,
 }));
 
-mock.module('./collectors/browser', () => ({ BROWSER_COLLECTORS: [provincialCollector] }));
+mock.module('../collectors/browser', () => ({ BROWSER_COLLECTORS: [provincialCollector] }));
 
 const { default: App } = await import('./App');
 

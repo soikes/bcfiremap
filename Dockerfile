@@ -11,10 +11,10 @@ FROM oven/bun:1.3.10-slim AS bun
 
 FROM nginxinc/nginx-unprivileged:stable
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-COPY security-headers.conf /etc/nginx/snippets/security-headers.conf
+COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
+COPY deploy/security-headers.conf /etc/nginx/snippets/security-headers.conf
 COPY --from=build /app/dist/public /usr/share/nginx/html
 COPY --from=build /app/dist/server /app/server
-COPY start.sh /app/start.sh
+COPY deploy/start.sh /app/start.sh
 EXPOSE 8080
 CMD ["/app/start.sh"]
