@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'bun:test';
 import { makeBan, makeSource } from '../test/fixtures';
-import { failedSources, isFireBan, isSourceStatus, parseBansResponse, retryingSources, validBans } from './bans';
+import {
+  failedSources,
+  isFireBan,
+  isSourceStatus,
+  loadingSources,
+  parseBansResponse,
+  retryingSources,
+  sourceNames,
+  validBans,
+} from './bans';
 
 describe('isFireBan', () => {
   it('accepts a complete ban, with or without the optional fields', () => {
@@ -45,6 +54,7 @@ describe('isSourceStatus', () => {
     ['an unknown status', { ...makeSource(), status: 'loading' }],
     ['a string hasData', { ...makeSource(), hasData: 'yes' }],
     ['a missing retrying flag', { ...makeSource(), retrying: undefined }],
+    ['a missing fetching flag', { ...makeSource(), fetching: undefined }],
     ['a string updatedAt', { ...makeSource(), updatedAt: '12:00' }],
   ])('rejects %s', (_case, value) => {
     expect(isSourceStatus(value)).toBe(false);
@@ -112,5 +122,28 @@ describe('retryingSources', () => {
       makeSource({ id: 'down', status: 'error', hasData: false }),
     ];
     expect(retryingSources(sources).map(source => source.id)).toEqual(['first-load', 'refresh']);
+  });
+});
+
+describe('loadingSources', () => {
+  it('returns the sources with a request in flight, leaving out the ones being retried', () => {
+    const sources = [
+      makeSource({ id: 'idle' }),
+      makeSource({ id: 'first-load', status: 'pending', hasData: false, fetching: true }),
+      makeSource({ id: 'refresh', fetching: true }),
+      makeSource({ id: 'retry', status: 'pending', hasData: false, fetching: true, retrying: true }),
+    ];
+    expect(loadingSources(sources).map(source => source.id)).toEqual(['first-load', 'refresh']);
+  });
+});
+
+describe('sourceNames', () => {
+  it.each([
+    [[], ''],
+    [['A'], 'A'],
+    [['A', 'B'], 'A and B'],
+    [['A', 'B', 'C'], 'A, B and C'],
+  ])('joins %p as %p', (names, expected) => {
+    expect(sourceNames(names.map(name => makeSource({ id: name, name })))).toBe(expected);
   });
 });

@@ -28,6 +28,7 @@ describe('createBanStore', () => {
           attribution: '',
           status: 'pending',
           hasData: false,
+          fetching: false,
           retrying: false,
           updatedAt: 0,
         },
@@ -98,6 +99,28 @@ describe('createBanStore', () => {
     await store.refresh(messy);
 
     expect(store.snapshot().bans.map(ban => ban.id)).toEqual(['ok']);
+  });
+
+  it('flags a source as fetching while its collector runs, and clears it when it finishes', async () => {
+    let answer: (bans: FireBan[]) => void = () => {};
+    const slow = collector('slow', () => new Promise<FireBan[]>(resolve => (answer = resolve)));
+    const store = createBanStore([slow], noRetries);
+
+    const running = store.refresh(slow);
+    expect(store.snapshot().sources[0]).toMatchObject({ status: 'pending', fetching: true });
+
+    answer([makeBan({ id: 's1' })]);
+    await running;
+    expect(store.snapshot().sources[0]).toMatchObject({ status: 'success', fetching: false });
+  });
+
+  it('clears the fetching flag when the collector fails', async () => {
+    const bad = collector('bad', async () => Promise.reject(new Error('down')));
+    const store = createBanStore([bad], noRetries);
+
+    await store.refresh(bad);
+
+    expect(store.snapshot().sources[0]).toMatchObject({ status: 'error', fetching: false });
   });
 
   it('flags a source as retrying between attempts and clears it when the retry succeeds', async () => {

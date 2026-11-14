@@ -336,3 +336,70 @@ describe('useBans while retrying', () => {
     expect(result.current.bans.map(ban => ban.id)).toEqual(['s1']);
   });
 });
+
+describe('useBans requests in flight', () => {
+  it('flags a browser source as fetching while its request runs, and clears it when it answers', async () => {
+    let answer: (bans: FireBan[]) => void = () => {};
+    const slow = collector('slow', () => new Promise<FireBan[]>(resolve => (answer = resolve)));
+    const { result } = renderBans([slow]);
+
+    await waitFor(() => expect(result.current.sources[0]).toMatchObject({ status: 'pending', fetching: true }));
+
+    answer([makeBan({ id: 's1' })]);
+
+    await waitFor(() => expect(result.current.sources[0]).toMatchObject({ status: 'success', fetching: false }));
+  });
+
+  it('flags a browser source as fetching while it refreshes data it already has', async () => {
+    let calls = 0;
+    let answer: (bans: FireBan[]) => void = () => {};
+    const refreshing = collector('refreshing', () => {
+      calls += 1;
+      return calls === 1 ? Promise.resolve([makeBan({ id: 'r1' })]) : new Promise<FireBan[]>(resolve => (answer = resolve));
+    });
+    const { result, client } = renderBans([refreshing]);
+    await waitFor(() => expect(result.current.sources[0]).toMatchObject({ status: 'success', fetching: false }));
+
+    void client.refetchQueries({ queryKey: ['bans', 'refreshing'] });
+
+    await waitFor(() => expect(result.current.sources[0]).toMatchObject({ hasData: true, fetching: true }));
+    answer([makeBan({ id: 'r2' })]);
+    await waitFor(() => expect(result.current.sources[0].fetching).toBe(false));
+  });
+
+  it('flags the server placeholder as fetching until the server answers', async () => {
+    mockServer(() => new Promise(() => {}));
+    const { result } = renderBans([]);
+
+    await waitFor(() =>
+      expect(result.current.sources).toEqual([expect.objectContaining({ id: 'server', fetching: true, retrying: false })]),
+    );
+  });
+
+  it('adds a fetching server entry next to the server sources while a later request runs', async () => {
+    let hang = false;
+    mockServer(async () => {
+      if (hang) return new Promise(() => {});
+      return { ok: true, json: async () => ({ bans: [], sources: [makeSource({ id: 'muni' })] }) };
+    });
+    const { result, client } = renderBans([]);
+    await waitFor(() => expect(result.current.sources.map(source => source.id)).toEqual(['muni']));
+
+    hang = true;
+    void client.refetchQueries({ queryKey: ['server-bans'] });
+
+    await waitFor(() =>
+      expect(result.current.sources).toEqual([
+        expect.objectContaining({ id: 'muni' }),
+        expect.objectContaining({ id: 'server', hasData: true, fetching: true, retrying: false }),
+      ]),
+    );
+  });
+
+  it('passes through a server source that the server is still fetching', async () => {
+    mockServer(serverAnswers({ bans: [], sources: [makeSource({ id: 'muni', status: 'pending', hasData: false, fetching: true })] }));
+    const { result } = renderBans([]);
+
+    await waitFor(() => expect(result.current.sources).toEqual([expect.objectContaining({ id: 'muni', fetching: true })]));
+  });
+});

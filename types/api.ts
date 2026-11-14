@@ -10,6 +10,7 @@ export interface SourceStatus {
   attribution: string;
   status: LoadStatus;
   hasData: boolean;
+  fetching: boolean;
   retrying: boolean;
   updatedAt: number;
 }

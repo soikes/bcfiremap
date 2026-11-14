@@ -8,6 +8,7 @@ interface Entry {
   bans: FireBan[];
   status: LoadStatus;
   hasData: boolean;
+  fetching: boolean;
   retrying: boolean;
   updatedAt: number;
 }
@@ -17,7 +18,7 @@ interface Options {
   retryDelayMs?: (attempt: number) => number;
 }
 
-const EMPTY: Entry = { bans: [], status: 'pending', hasData: false, retrying: false, updatedAt: 0 };
+const EMPTY: Entry = { bans: [], status: 'pending', hasData: false, fetching: false, retrying: false, updatedAt: 0 };
 
 /** Delay before retry number `attempt` (from 0), doubling from 1 s up to 30 s. */
 const backoff = (attempt: number) => Math.min(1000 * 2 ** attempt, 30000);
@@ -48,15 +49,16 @@ export function createBanStore(collectors: Collector[], { retries = 3, retryDela
   /** Changes some fields of a collector's entry, keeping the rest. */
   const update = (id: string, changes: Partial<Entry>) => entries.set(id, { ...(entries.get(id) ?? EMPTY), ...changes });
 
-  /** Runs one collector and records its bans, or marks it failed while keeping its previous bans; flags it as retrying between attempts. */
+  /** Runs one collector and records its bans, or marks it failed while keeping its previous bans; flags it as fetching while it runs and retrying between attempts. */
   async function refresh(collector: Collector): Promise<void> {
     const markRetrying = () => update(collector.id, { retrying: true });
+    update(collector.id, { fetching: true });
     try {
       const bans = validBans(await withRetry(() => collector.collect(), retries, retryDelayMs, markRetrying), collector.id);
-      entries.set(collector.id, { bans, status: 'success', hasData: true, retrying: false, updatedAt: Date.now() });
+      entries.set(collector.id, { bans, status: 'success', hasData: true, fetching: false, retrying: false, updatedAt: Date.now() });
       logger.log(`[banStore] ${collector.id} refreshed`, bans.length, 'bans');
     } catch (error) {
-      update(collector.id, { status: 'error', retrying: false });
+      update(collector.id, { status: 'error', fetching: false, retrying: false });
       logger.error(`[banStore] ${collector.id} refresh failed`, error);
     }
   }
@@ -85,6 +87,7 @@ export function createBanStore(collectors: Collector[], { retries = 3, retryDela
         attribution: collector.attribution,
         status: entry.status,
         hasData: entry.hasData,
+        fetching: entry.fetching,
         retrying: entry.retrying,
         updatedAt: entry.updatedAt,
       })),

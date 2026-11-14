@@ -47,6 +47,7 @@ export function isSourceStatus(value: unknown): value is SourceStatus {
     typeof value.attribution === 'string' &&
     isOneOf(LOAD_STATUSES, value.status) &&
     typeof value.hasData === 'boolean' &&
+    typeof value.fetching === 'boolean' &&
     typeof value.retrying === 'boolean' &&
     typeof value.updatedAt === 'number'
   );
@@ -78,3 +79,14 @@ export const failedSources = (sources: SourceStatus[]) =>
 
 /** Returns the sources whose last attempt failed and that are trying again. */
 export const retryingSources = (sources: SourceStatus[]) => sources.filter(source => source.retrying);
+
+/** Returns the sources with a request in flight, leaving out the ones being retried. */
+export const loadingSources = (sources: SourceStatus[]) =>
+  sources.filter(source => source.fetching && !source.retrying);
+
+/** Joins the sources' names as "A", "A and B" or "A, B and C". */
+export function sourceNames(sources: SourceStatus[]): string {
+  const names = sources.map(source => source.name);
+  if (names.length <= 1) return names.join('');
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
