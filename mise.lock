@@ -36,6 +36,18 @@ specifiers = ["29.9.3"]
 checksum = "sha256:3fb5d1f13014c18cc54945bc177c58a9056a482dada031e17d12cf2e6922c973"
 url = "https://download.docker.com/linux/static/stable/x86_64/docker-29.9.3.tgz"
 
+[tools.docker-cli."platforms.linux-x64-baseline"]
+checksum = "sha256:3fb5d1f13014c18cc54945bc177c58a9056a482dada031e17d12cf2e6922c973"
+url = "https://download.docker.com/linux/static/stable/x86_64/docker-29.9.3.tgz"
+
+[tools.docker-cli."platforms.linux-x64-musl"]
+checksum = "sha256:3fb5d1f13014c18cc54945bc177c58a9056a482dada031e17d12cf2e6922c973"
+url = "https://download.docker.com/linux/static/stable/x86_64/docker-29.9.3.tgz"
+
+[tools.docker-cli."platforms.linux-x64-musl-baseline"]
+checksum = "sha256:3fb5d1f13014c18cc54945bc177c58a9056a482dada031e17d12cf2e6922c973"
+url = "https://download.docker.com/linux/static/stable/x86_64/docker-29.9.3.tgz"
+
 [tools.docker-cli."platforms.macos-arm64"]
 checksum = "sha256:79145e169bca0b9571d02de8e1cd311a36e0e8fdb4599b6661a87b1bb3afbe13"
 url = "https://download.docker.com/mac/static/stable/aarch64/docker-29.9.3.tgz"
@@ -46,6 +58,24 @@ backend = "aqua:superfly/flyctl"
 specifiers = ["0.5.8"]
 
 [tools.flyctl."platforms.linux-x64"]
+checksum = "sha256:0115ae5202c9984695e22e4e99a375565ae3d7edc462377ce00c833406c877ac"
+checksum_source = "mise-versions"
+url = "https://github.com/superfly/flyctl/releases/download/v0.5.8/flyctl_0.5.8_Linux_x86_64.tar.gz"
+url_api = "https://api.github.com/repos/superfly/flyctl/releases/assets/736637858"
+
+[tools.flyctl."platforms.linux-x64-baseline"]
+checksum = "sha256:0115ae5202c9984695e22e4e99a375565ae3d7edc462377ce00c833406c877ac"
+checksum_source = "mise-versions"
+url = "https://github.com/superfly/flyctl/releases/download/v0.5.8/flyctl_0.5.8_Linux_x86_64.tar.gz"
+url_api = "https://api.github.com/repos/superfly/flyctl/releases/assets/736637858"
+
+[tools.flyctl."platforms.linux-x64-musl"]
+checksum = "sha256:0115ae5202c9984695e22e4e99a375565ae3d7edc462377ce00c833406c877ac"
+checksum_source = "mise-versions"
+url = "https://github.com/superfly/flyctl/releases/download/v0.5.8/flyctl_0.5.8_Linux_x86_64.tar.gz"
+url_api = "https://api.github.com/repos/superfly/flyctl/releases/assets/736637858"
+
+[tools.flyctl."platforms.linux-x64-musl-baseline"]
 checksum = "sha256:0115ae5202c9984695e22e4e99a375565ae3d7edc462377ce00c833406c877ac"
 checksum_source = "mise-versions"
 url = "https://github.com/superfly/flyctl/releases/download/v0.5.8/flyctl_0.5.8_Linux_x86_64.tar.gz"
