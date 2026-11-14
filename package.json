@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.107.1",
+    "lowdb": "7",
     "maplibre-gl": "5.24.1",
     "polygon-clipping": "^0.15.7",
     "react": "19.3.0",

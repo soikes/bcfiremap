@@ -1,8 +1,9 @@
-import { FireBan } from '../types/ban';
-import { Authority } from '../types/authority';
-import { Collector } from '../types/collector';
-import { fetchAreas } from '../utils/abms';
-import { logger } from '../utils/logger';
+import { FireBan } from "../types/ban";
+import { Authority } from "../types/authority";
+import { Collector } from "../types/collector";
+import { fetchAreas } from "../utils/abms";
+import { logger } from "../utils/logger";
+import { MonthDay, MonthDayRange } from "../utils/monthDay";
 
 export interface StandingBanConfig {
   authority: Authority;
@@ -11,20 +12,32 @@ export interface StandingBanConfig {
   title: string;
   description: string;
   rulesUrl: string;
+  effectiveDate?: string;
+  expiryDate?: string;
+  annualEffectivePeriod?: MonthDayRange;
 }
 
-/** Builds a municipality's standing year-round ban over its boundary. */
-export function buildStandingBan(config: StandingBanConfig, geometry: FireBan['geometry']): FireBan {
+/** Builds a municipality's standing ban over its boundary. */
+export function buildStandingBan(
+  config: StandingBanConfig,
+  geometry: FireBan["geometry"],
+): FireBan {
   return {
     id: `${config.authority.id}:open-fires`,
     source: config.authority.id,
-    level: 'municipal',
+    level: "municipal",
     region: config.municipalityName,
-    type: 'all-fires',
+    type: "all-fires",
     title: config.title,
     description: config.description,
     url: config.rulesUrl,
     authorityId: config.authority.id,
+    effectiveDate: config.effectiveDate,
+    expiryDate: config.expiryDate,
+    annualEffectivePeriod: config.annualEffectivePeriod ?? {
+      start: "01-01",
+      end: "12-31",
+    },
     geometry,
   };
 }
@@ -37,9 +50,13 @@ export function standingBanCollector(config: StandingBanConfig): Collector {
     name: municipalityName,
     coverage: `The standing year-round open fire prohibition inside the ${municipalityName} boundary.`,
     attribution: `${municipalityName} fire rules; boundary contains information licensed under the Open Government Licence – British Columbia.`,
-    refetchIntervalMs: 24 * 60 * 60 * 1000,
-    collect: async signal => {
-      const [area] = await fetchAreas('municipality', `ADMIN_AREA_ABBREVIATION='${config.abmsName}'`, signal);
+    refetchIntervalMs: BigInt(24 * 60 * 60 * 1000 * 30),
+    collect: async (signal) => {
+      const [area] = await fetchAreas(
+        "municipality",
+        `ADMIN_AREA_ABBREVIATION='${config.abmsName}'`,
+        signal,
+      );
       if (!area) throw new Error(`${municipalityName} boundary not found`);
       logger.log(`[${authority.id}] built the standing open fire ban`);
       return [buildStandingBan(config, area.geometry)];

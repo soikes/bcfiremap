@@ -17,6 +17,7 @@ export const SAMPLE_BANS: FireBan[] = [
     region: 'Kamloops Fire Centre',
     type: 'campfire',
     description: 'Campfires prohibited.',
+    annualEffectivePeriod: { start: '01-01', end: '12-31' },
     geometry: rect(50, -123, 53, -117),
   },
   {
@@ -26,6 +27,7 @@ export const SAMPLE_BANS: FireBan[] = [
     region: 'Okanagan Fire Centre',
     type: 'campfire',
     description: 'Campfires prohibited.',
+    annualEffectivePeriod: { start: '01-01', end: '12-31' },
     geometry: rect(48.5, -120.5, 51, -117),
   },
   {
@@ -35,6 +37,7 @@ export const SAMPLE_BANS: FireBan[] = [
     region: 'Thompson-Nicola Regional District',
     type: 'open-burning',
     description: 'Open burning prohibited.',
+    annualEffectivePeriod: { start: '01-01', end: '12-31' },
     geometry: rect(49.5, -121.5, 51.5, -118.5),
   },
   {
@@ -44,6 +47,7 @@ export const SAMPLE_BANS: FireBan[] = [
     region: 'City of Kamloops',
     type: 'all-fires',
     description: 'All fires prohibited.',
+    annualEffectivePeriod: { start: '01-01', end: '12-31' },
     geometry: rect(50.62, -120.65, 50.78, -120.2),
   },
   {
@@ -53,6 +57,7 @@ export const SAMPLE_BANS: FireBan[] = [
     region: 'City of Kelowna',
     type: 'category2-3',
     description: 'Category 2 and 3 burning prohibited.',
+    annualEffectivePeriod: { start: '01-01', end: '12-31' },
     geometry: rect(49.8, -119.65, 49.97, -119.35),
   },
 ];
@@ -66,6 +71,7 @@ export const makeBan = (overrides: Partial<FireBan> = {}): FireBan => ({
   type: 'campfire',
   description: 'Test description.',
   effectiveDate: '2026-07-01',
+  annualEffectivePeriod: { start: '01-01', end: '12-31' },
   geometry: {
     type: 'Polygon',
     coordinates: [[[-120, 49], [-119, 49], [-119, 50], [-120, 50], [-120, 49]]],

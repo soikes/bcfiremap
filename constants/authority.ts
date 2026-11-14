@@ -36,6 +36,27 @@ export const VICTORIA_AUTHORITY: Authority = {
   level: 'municipal',
 };
 
+export const SAANICH_AUTHORITY: Authority = {
+  id: 'saanich',
+  name: 'District of Saanich',
+  kind: 'municipality',
+  level: 'municipal',
+};
+
+export const ESQUIMALT_AUTHORITY: Authority = {
+  id: 'esquimalt',
+  name: 'Township of Esquimalt',
+  kind: 'municipality',
+  level: 'municipal',
+};
+
+export const SIDNEY_AUTHORITY: Authority = {
+  id: 'sidney',
+  name: 'Town of Sidney',
+  kind: 'municipality',
+  level: 'municipal',
+};
+
 export const OAK_BAY_AUTHORITY: Authority = {
   id: 'oak-bay',
   name: 'District of Oak Bay',
