@@ -4,48 +4,52 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Stack
 
-- **Expo 58** — web is the primary target; native (iOS/Android) is a roadmap item
-- **React Native 0.88** with **react-native-web**
-- **MapLibre** on both platforms — `react-map-gl/maplibre` + `maplibre-gl` (pinned 5.24.1) on web, `@maplibre/maplibre-react-native` on native; OSM Bright basemap style on OpenFreeMap tiles
-- **Bun** — package manager and runtime (use `bun` for all installs and script execution, never `npm` or `yarn`)
-- **TypeScript** — strict mode enabled
+- **React 19** with `react-dom`, web only
+- **Bun 1.3.10**: package manager, runtime, bundler, dev server and test runner (use `bun` for everything, never `npm` or `yarn`). The same version is pinned in the `Dockerfile`, CI and `@types/bun`; change them together.
+- **MapLibre**: `react-map-gl/maplibre` + `maplibre-gl` (pinned 5.24.1); OSM Bright basemap style on OpenFreeMap tiles
+- **TypeScript**: strict mode
 
 ## Commands
 
 ```sh
-bun run start       # start Expo dev server
-bun run web         # start in browser
-bun run build:web   # static web export to dist/
-bun run test        # Jest (jest-expo) + React Native Testing Library; never plain `bun test`, which runs Bun's own runner
-bun run ios         # build and run the iOS dev client (currently blocked, see Native status)
-bun run android     # build and run the Android dev client
+bun run dev         # dev server on http://localhost:3000 (PORT to change) with hot reload
+bun run build       # production build to dist/
+bun run start       # serve the production build (runs from inside dist/, where Bun looks for the bundled files)
+bun run test        # bun test with happy-dom and React Testing Library
+bun run typecheck   # tsc --noEmit
 bun install         # install dependencies
 ```
 
 ## Architecture
 
-- `index.ts` — entry point, registers the root component via `registerRootComponent`
+- `index.html` — page shell; Bun bundles `main.tsx` and `index.css` from it
+- `main.tsx` — renders `App` into `#root`
+- `server.ts` — `Bun.serve`: serves the page (an HTML import, bundled on the fly in dev and prebuilt in production) and `/api/bans`, and starts the server collectors
+- `server/banStore.ts` — runs the server collectors on their schedules with retries, keeps the last good data per source, and builds the `/api/bans` response
 - `App.tsx` — root component; provides the react-query client, owns the selected-location state and composes the map layers and `BanPanel`
-- `components/BaseMap.tsx` / `BaseMap.web.tsx` — platform adapters for the map and its press/click event; shared props in `BaseMap.types.ts`
-- `components/MapSource.tsx` / `MapSource.web.tsx` — platform adapters for a GeoJSON source; `MapLayer.tsx` / `MapLayer.web.tsx` re-export each library's `Layer`
-- `components/FireZones.tsx`, `BanPolygons.tsx`, `SelectedPin.tsx` — map layers, written once for both platforms on top of `MapSource` and `MapLayer`
+- `components/BaseMap.tsx` — full-size MapLibre map that reports clicks as a `LatLng`
+- `components/FireZones.tsx`, `BanPolygons.tsx`, `SelectedPin.tsx` — map layers built from react-map-gl's `Source` and `Layer`
 - `components/BanPanel.tsx`, `BanCard.tsx` — results panel (centred and width-limited on wide screens); lists the bans at the tapped point plus each source's status, coverage and attribution
-- `collectors/` — one `Collector` per data source (`types.ts`): `collect()` fetches and normalizes to `FireBan[]`. `provincial.ts` is the BC Wildfire Service ArcGIS feed, `example.ts` is fake dev data (made-up bans shaped like the real Kamloops Fire Centre, whose zones are merged into one outline with `polygon-clipping`, and the Penticton Fire Zone, fetched at runtime from the zones service, plus hand-drawn local ones; the real collector does no merging and uses each row's own polygon), `index.ts` lists the active collectors, `fetchJson.ts` adds timeout and abort handling, `classifyBan.ts` maps free text to a `BanType`
-- `hooks/useBans.ts` — runs every collector on its own schedule (react-query), merges the bans and reports per-source status, keeping the last good data if a refresh fails
+- `collectors/` — one `Collector` per data source (`types.ts`): `collect()` fetches and normalizes to `FireBan[]`. `browser.ts` lists the collectors that run in each visitor's browser, `server.ts` the ones the server runs (see Fire bans for which goes where). `provincial.ts` is the BC Wildfire Service ArcGIS feed, `example.ts` is fake dev data (made-up bans shaped like the real Kamloops Fire Centre, whose zones are merged into one outline with `polygon-clipping`, and the Penticton Fire Zone, fetched at runtime from the zones service, plus hand-drawn local ones; the real collector does no merging and uses each row's own polygon), `classifyBan.ts` maps free text to a `BanType`
+- `hooks/useBans.ts` — runs the browser collectors on their own schedules (react-query), fetches `/api/bans`, and merges both, keeping the last good data if a refresh fails; a placeholder source stands in for the server until it answers
 - `hooks/useFireBans.ts` — returns the bans whose area contains the selected location, broadest first, using `utils/geometry.ts` (Polygon/MultiPolygon with holes) and `utils/pointInPolygon.ts`
 - `lib/queryClient.ts` — shared react-query client (retries with backoff)
+- `utils/fetchJson.ts` — GET + JSON with timeout and abort handling, used by collectors and `useBans`
 - `utils/geojson.ts` — converts bans and points to GeoJSON for the map sources
-- `types/` — shared types: `LatLng` (`geo.ts`) and `FireBan` (`ban.ts`)
-- `env.d.ts` — declares `process.env` for `EXPO_PUBLIC_*` variables
-- `utils/logger.ts` — thin wrapper around `console.log`/`console.error`, shared by all platforms
+- `utils/logger.ts` — thin wrapper around `console.log`/`console.error`
+- `types/` — shared types: `LatLng` (`geo.ts`), `FireBan` (`ban.ts`), and `SourceStatus`/`BansResponse` (`api.ts`, the shape `/api/bans` returns)
 - `constants/` — map style/camera, fire zones URL and the `SHOW_FIRE_ZONES` flag (`map.ts`), ban colours and labels (`banStyle.ts`)
-- `css.d.ts` — lets TypeScript accept the `maplibre-gl` CSS import
-- `app.json` — Expo configuration (name, slug, icons, splash, platform-specific settings)
-- `assets/` — static assets (icons, splash screens)
+- `test/` — fixtures, the `bun test` preloads (`happydom.ts`, `testingLibrary.ts`, set in `bunfig.toml`) and the jest-dom matcher types
+- `bunfig.toml` — test preloads, and which env variables the dev server inlines into the page (`PUBLIC_*`)
+- `.env` — defaults for build-time flags (`PUBLIC_EXAMPLE_BANS=false`)
+- `css.d.ts` — lets TypeScript accept CSS imports
+- `assets/` — favicon, source icon art, basemap style
+
+Each component's styles live in a plain CSS file next to it (`BanPanel.css`), with class names prefixed by the component name (`ban-panel-title`). CSS modules don't work in Bun 1.3.10's dev server (the class name object is never defined).
 
 ## Data
 
-Fire zone boundaries are not stored in the repo. `components/FireZones.tsx` gives the map a URL (`FIRE_ZONES_URL` in `constants/map.ts`) to the BC government's ArcGIS feature service, and the map fetches it at runtime. The query asks the server to simplify the geometry (`maxAllowableOffset`), which keeps the response around 280 KB. The service allows cross-origin reads, unlike BC's WFS server. The ArcGIS copy has 31 zones (no Mid Island Fire Zone). The layer is currently off (`SHOW_FIRE_ZONES = false`) pending licensing clarification.
+Fire zone boundaries are not stored in the repo. `components/FireZones.tsx` gives the map a URL (`FIRE_ZONES_URL` in `constants/map.ts`) to the BC government's ArcGIS feature service, and the browser fetches it at runtime. The query asks the server to simplify the geometry (`maxAllowableOffset`), which keeps the response around 280 KB. The service allows cross-origin reads, unlike BC's WFS server. The ArcGIS copy has 31 zones (no Mid Island Fire Zone). The layer is currently off (`SHOW_FIRE_ZONES = false`) pending licensing clarification.
 
 ### Basemap
 
@@ -53,29 +57,24 @@ The basemap style is [OSM Bright](https://github.com/openmaptiles/osm-bright-gl-
 
 ### Fire bans
 
-Bans come from collectors that run in the client at runtime (a backend that runs the same collectors is a possible later step). `collectors/provincial.ts` reads the BC Wildfire Service "Bans and Prohibition Areas" ArcGIS layer (Open Government Licence – British Columbia, so the attribution is shown in the panel). It excludes municipal and regional district bans, and the panel says so. The layer was empty (off-season) when the collector was written, so the free-text `TYPE`, `CATEGORY` and `ACCESS_PROHIBITION_DESCRIPTION` values are unverified: the card shows the source's own text and `classifyBan` falls back to `other`. Geometry is simplified server-side (`maxAllowableOffset=0.001`, about 100 m), so lookups near a boundary are approximate.
+Where a collector runs depends on its source's licence. Both BC ArcGIS sources (Bans and Prohibitions, and Fire Zones) are listed as **Access Only** in the BC Data Catalogue: reproduction is not permitted without written permission. So they are browser collectors: each visitor's browser fetches them directly, and the server must not fetch, store or re-serve them (this includes the example collector, which builds on the fire zone shapes). The ArcGIS item for the bans layer says Open Government Licence – British Columbia instead, which is where the panel's attribution text comes from; the conflict is unresolved. Sources whose licence allows redistribution can be server collectors.
 
-To add a source: write a `Collector` in `collectors/` that returns `FireBan[]` (reuse `fetchJson`, validate the response, skip bad features instead of throwing), then add it to `COLLECTORS` in `collectors/index.ts`. Set `EXPO_PUBLIC_EXAMPLE_BANS=true` when starting the app to add the fake example collector. `collectors/index.ts` loads it with a `require` inside an `if` on that variable, so without the flag the build tool folds the branch away and neither the example collector nor `polygon-clipping` is in the bundle (checked on a production export). Keep the `require` in that form, and don't set the variable for real production builds. `fly.toml` currently sets it as a build arg (passed through the `Dockerfile`) so the deployed site shows the example data; remove it from `[build.args]` to turn that off.
+`collectors/provincial.ts` reads the BC Wildfire Service "Bans and Prohibition Areas" ArcGIS layer. It excludes municipal and regional district bans, and the panel says so. The layer was empty (off-season) when the collector was written, so the free-text `TYPE`, `CATEGORY` and `ACCESS_PROHIBITION_DESCRIPTION` values are unverified: the card shows the source's own text and `classifyBan` falls back to `other`. Geometry is simplified server-side (`maxAllowableOffset=0.001`, about 100 m), so lookups near a boundary are approximate.
+
+To add a source: write a `Collector` in `collectors/` that returns `FireBan[]` (reuse `fetchJson`, validate the response, skip bad features instead of throwing), then add it to `BROWSER_COLLECTORS` (`collectors/browser.ts`) or `SERVER_COLLECTORS` (`collectors/server.ts`) according to its licence. A browser source's host must also be added to the CSP. Before relying on server collectors in production, keep one machine running: Fly stops idle machines (`auto_stop_machines`), which pauses the schedule, so set `min_machines_running = 1` and run a single machine (`fly scale count 1`) so sources aren't fetched twice. In dev, `bun --hot` re-runs `server.ts` when server code changes and the earlier schedules keep running, so restart `bun run dev` after editing server code.
+
+Set `PUBLIC_EXAMPLE_BANS=true` when running `bun run dev` or `bun run build` to add the fake example collector. The bundler replaces `process.env.PUBLIC_EXAMPLE_BANS` with its value at build time; `.env` sets it to `false` so it is always defined (left unset, the reference would stay in the page and fail in the browser, where there is no `process`). `collectors/browser.ts` loads the example with a `require` inside an `if` on that variable, so without the flag the bundler drops the branch and neither the example collector nor `polygon-clipping` is in the bundle (checked on a production build). Keep the `require` in that form, and don't set the variable for real production builds. `fly.toml` currently sets it as a build arg (passed through the `Dockerfile`) so the deployed site shows the example data; remove it from `[build.args]` to turn that off.
 
 ## Deploy
 
-The web build is a static export served by nginx. `Dockerfile` builds it with `bun run build:web` and copies `dist/` into a non-root nginx image (`nginx.conf` for rate limiting and server settings, `security-headers.conf` for response headers incl. the CSP, port 8080); `fly.toml` configures Fly.io (`fly deploy`). The CSP allows only `self` plus `https://tiles.openfreemap.org` (tiles, fonts), `https://openmaptiles.github.io` (map icons) and `https://services6.arcgis.com` (BC Wildfire Service data); adding or changing a data or basemap host means updating it.
-
-## Native status
-
-The iOS dev build fails on Xcode 26.3 in `expo-modules-jsi` (expo/expo#52754). A community patch exists but isn't applied. Native code paths are written but untested.
-
-## Expo Config
-
-App is configured in `app.json` (not `app.config.ts`). Platform-specific settings live under `expo.ios` and `expo.android` keys.
+`Dockerfile` builds with `bun run build` and runs `dist/server.js` on a slim Bun image as the `bun` user, on port 8080. `fly.toml` configures Fly.io (`fly deploy`); CI deploys on pushes to `main` after typecheck and tests. The Fly proxy adds the security headers listed in `fly.toml` (incl. the CSP) and compresses responses. The CSP allows only `self` plus `https://tiles.openfreemap.org` (tiles, fonts), `https://openmaptiles.github.io` (map icons) and `https://services6.arcgis.com` (BC Wildfire Service data, fetched by the browser); adding or changing a data or basemap host means updating it. There is no per-IP rate limiting. Bun 1.3.10 sends an `ETag` but no long-lived `Cache-Control` for the content-hashed JS and CSS, so browsers revalidate them.
 
 ## Reading Logs
 
-All logging goes through `utils/logger.ts`, which writes to `console` only. On native, output appears in the Metro terminal running `bun run start`; on web, it appears in the browser console. To read logs, run the dev server in the background with Bash and read its output, or ask the user to paste the terminal output.
+All logging goes through `utils/logger.ts`, which writes to `console` only. Server logs appear in the terminal running `bun run dev`; in dev, the browser's console output is echoed there too. In production, browser logs appear only in the browser console. To read logs, run the dev server in the background with Bash and read its output, or ask the user to paste the terminal output.
 
 ## Style
 
 - Code is written in a minimal, functional style as much as possible
 - Use logging generously
 - Document each function above its definition with one plain line; don't record rationale or history in code
-- Platform variants (`Foo.tsx` / `Foo.web.tsx`) keep the same structure and style (named handlers, same ordering, same naming); they differ only where a library's API requires it
