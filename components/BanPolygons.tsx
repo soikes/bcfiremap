@@ -1,10 +1,9 @@
 import { useMemo } from 'react';
+import { Layer, Source } from 'react-map-gl/maplibre';
 import { levelColor } from '../constants/banStyle';
 import { FireBan } from '../types/ban';
 import { bansToFeatureCollection } from '../utils/geojson';
 import { logger } from '../utils/logger';
-import { MapLayer } from './MapLayer';
-import { MapSource } from './MapSource';
 
 interface Props {
   bans: FireBan[];
@@ -19,9 +18,9 @@ export function BanPolygons({ bans }: Props) {
   }, [bans]);
 
   return (
-    <MapSource id="bans" data={data}>
-      <MapLayer id="ban-fill" type="fill" paint={{ 'fill-color': levelColor('fill') }} />
-      <MapLayer id="ban-outline" type="line" paint={{ 'line-color': levelColor('stroke'), 'line-width': 2 }} />
-    </MapSource>
+    <Source id="bans" type="geojson" data={data}>
+      <Layer id="ban-fill" type="fill" paint={{ 'fill-color': levelColor('fill') }} />
+      <Layer id="ban-outline" type="line" paint={{ 'line-color': levelColor('stroke'), 'line-width': 2 }} />
+    </Source>
   );
 }

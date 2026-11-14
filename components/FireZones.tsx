@@ -1,17 +1,16 @@
+import { Layer, Source } from 'react-map-gl/maplibre';
 import { FIRE_ZONES_URL } from '../constants/map';
-import { MapLayer } from './MapLayer';
-import { MapSource } from './MapSource';
 
 /** Draws BC fire zone outlines and names from a remote GeoJSON URL as one source with a line layer and a symbol layer. */
 export function FireZones() {
   return (
-    <MapSource id="fire-zones" data={FIRE_ZONES_URL}>
-      <MapLayer
+    <Source id="fire-zones" type="geojson" data={FIRE_ZONES_URL}>
+      <Layer
         id="fire-zone-outlines"
         type="line"
         paint={{ 'line-color': 'rgba(220, 80, 20, 0.8)', 'line-width': 1 }}
       />
-      <MapLayer
+      <Layer
         id="fire-zone-labels"
         type="symbol"
         layout={{
@@ -25,6 +24,6 @@ export function FireZones() {
           'text-halo-width': 1.5,
         }}
       />
-    </MapSource>
+    </Source>
   );
 }

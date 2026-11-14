@@ -1,3 +1,4 @@
+import { afterEach, describe, expect, it, mock } from 'bun:test';
 import { BCWS_2022_FEED } from '../test/bcws2022';
 import { PROVINCIAL_URL, parseProvincialBans, provincialCollector } from './provincial';
 
@@ -183,6 +184,12 @@ describe('parseProvincialBans edge cases', () => {
 });
 
 describe('provincialCollector', () => {
+  const realFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+  });
+
   it('describes what it covers, including what it leaves out', () => {
     expect(provincialCollector.coverage).toMatch(/Municipal/);
     expect(provincialCollector.attribution).toMatch(/Open Government Licence/);
@@ -196,7 +203,7 @@ describe('provincialCollector', () => {
   });
 
   it('fetches the layer and returns the parsed bans', async () => {
-    const fetchMock = jest.fn(async () => ({ ok: true, json: async () => BCWS_2022_FEED }));
+    const fetchMock = mock(async () => ({ ok: true, json: async () => BCWS_2022_FEED }));
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
     const bans = await provincialCollector.collect();
@@ -206,7 +213,7 @@ describe('provincialCollector', () => {
   });
 
   it('rejects when the service answers with an error', async () => {
-    globalThis.fetch = jest.fn(async () => ({
+    globalThis.fetch = mock(async () => ({
       ok: true,
       json: async () => ({ error: { code: 500, message: 'Service unavailable' } }),
     })) as unknown as typeof fetch;

@@ -1,3 +1,4 @@
+import { afterEach, describe, expect, it, mock } from 'bun:test';
 import type { Geometry, MultiPolygon, Polygon, Position } from 'geojson';
 import { FIRE_ZONES_URL } from '../constants/map';
 import { pointInGeometry } from '../utils/geometry';
@@ -99,8 +100,14 @@ describe('buildExampleBans', () => {
 });
 
 describe('exampleCollector', () => {
+  const realFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+  });
+
   it('fetches the fire zones and returns example bans built from them', async () => {
-    const fetchMock = jest.fn(async () => ({ ok: true, json: async () => collection(kamloops, penticton) }));
+    const fetchMock = mock(async () => ({ ok: true, json: async () => collection(kamloops, penticton) }));
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
     const bans = await exampleCollector.collect();

@@ -1,8 +1,7 @@
 import { useMemo } from 'react';
+import { Layer, Source } from 'react-map-gl/maplibre';
 import { LatLng } from '../types/geo';
 import { pointToFeatureCollection } from '../utils/geojson';
-import { MapLayer } from './MapLayer';
-import { MapSource } from './MapSource';
 
 interface Props {
   coordinate: LatLng;
@@ -13,8 +12,8 @@ export function SelectedPin({ coordinate }: Props) {
   const data = useMemo(() => pointToFeatureCollection(coordinate), [coordinate]);
 
   return (
-    <MapSource id="selected-pin" data={data}>
-      <MapLayer
+    <Source id="selected-pin" type="geojson" data={data}>
+      <Layer
         id="selected-pin-dot"
         type="circle"
         paint={{
@@ -24,6 +23,6 @@ export function SelectedPin({ coordinate }: Props) {
           'circle-stroke-width': 2.5,
         }}
       />
-    </MapSource>
+    </Source>
   );
 }

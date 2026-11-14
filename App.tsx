@@ -1,6 +1,6 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import './App.css';
 import { BanPanel } from './components/BanPanel';
 import { BanPolygons } from './components/BanPolygons';
 import { BaseMap } from './components/BaseMap';
@@ -19,14 +19,14 @@ function MapScreen() {
   const bansHere = useFireBans(bans, selected);
 
   return (
-    <View style={styles.container}>
-      <BaseMap onPress={setSelected}>
+    <div className="app">
+      <BaseMap onClick={setSelected}>
         {SHOW_FIRE_ZONES && <FireZones />}
         <BanPolygons bans={bans} />
         {selected && <SelectedPin coordinate={selected} />}
       </BaseMap>
       {selected && <BanPanel bans={bansHere} sources={sources} onClose={() => setSelected(null)} />}
-    </View>
+    </div>
   );
 }
 
@@ -38,7 +38,3 @@ export default function App() {
     </QueryClientProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-});

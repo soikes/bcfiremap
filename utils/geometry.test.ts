@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'bun:test';
 import type { MultiPolygon, Polygon } from 'geojson';
 import { pointInGeometry } from './geometry';
 

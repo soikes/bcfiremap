@@ -1,11 +1,11 @@
-import { render, screen, userEvent } from '@testing-library/react-native';
-import { Linking } from 'react-native';
+import { render, screen } from '@testing-library/react';
+import { describe, expect, it } from 'bun:test';
 import { makeBan } from '../test/fixtures';
 import { BanCard } from './BanCard';
 
 describe('BanCard', () => {
-  it('shows the level, region, source title, description and effective date', async () => {
-    await render(
+  it('shows the level, region, source title, description and effective date', () => {
+    render(
       <BanCard
         ban={makeBan({
           level: 'regional-district',
@@ -17,34 +17,28 @@ describe('BanCard', () => {
       />,
     );
 
-    expect(screen.getByText('Regional District')).toBeOnTheScreen();
-    expect(screen.getByText('Thompson-Nicola Regional District')).toBeOnTheScreen();
-    expect(screen.getByText('Campfire · Category 1')).toBeOnTheScreen();
-    expect(screen.getByText('Campfires are prohibited.')).toBeOnTheScreen();
-    expect(screen.getByText('Effective 2026-06-15')).toBeOnTheScreen();
+    expect(screen.getByText('Regional District')).toBeInTheDocument();
+    expect(screen.getByText('Thompson-Nicola Regional District')).toBeInTheDocument();
+    expect(screen.getByText('Campfire · Category 1')).toBeInTheDocument();
+    expect(screen.getByText('Campfires are prohibited.')).toBeInTheDocument();
+    expect(screen.getByText('Effective 2026-06-15')).toBeInTheDocument();
   });
 
-  it('falls back to the type label when the source gave no title', async () => {
-    await render(<BanCard ban={makeBan({ title: undefined, type: 'open-burning' })} />);
-    expect(screen.getByText('Open Burning Prohibition')).toBeOnTheScreen();
+  it('falls back to the type label when the source gave no title', () => {
+    render(<BanCard ban={makeBan({ title: undefined, type: 'open-burning' })} />);
+    expect(screen.getByText('Open Burning Prohibition')).toBeInTheDocument();
   });
 
-  it('leaves out the description, date and link when the source gave none', async () => {
-    await render(
-      <BanCard ban={makeBan({ description: '', effectiveDate: undefined, url: undefined })} />,
-    );
-    expect(screen.queryByText(/Effective/)).not.toBeOnTheScreen();
-    expect(screen.queryByText('Official bulletin')).not.toBeOnTheScreen();
+  it('leaves out the description, date and link when the source gave none', () => {
+    render(<BanCard ban={makeBan({ description: '', effectiveDate: undefined, url: undefined })} />);
+    expect(screen.queryByText(/Effective/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Official bulletin')).not.toBeInTheDocument();
   });
 
-  it('opens the bulletin link when pressed', async () => {
-    const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
-    const user = userEvent.setup();
-    await render(<BanCard ban={makeBan({ url: 'https://example.gov/bulletin' })} />);
-
-    await user.press(screen.getByText('Official bulletin'));
-
-    expect(openURL).toHaveBeenCalledWith('https://example.gov/bulletin');
-    openURL.mockRestore();
+  it('links to the bulletin in a new tab', () => {
+    render(<BanCard ban={makeBan({ url: 'https://example.gov/bulletin' })} />);
+    const link = screen.getByRole('link', { name: 'Official bulletin' });
+    expect(link).toHaveAttribute('href', 'https://example.gov/bulletin');
+    expect(link).toHaveAttribute('target', '_blank');
   });
 });

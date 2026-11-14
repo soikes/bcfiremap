@@ -2,8 +2,8 @@ import type { Geometry, MultiPolygon, Polygon, Position } from 'geojson';
 import polygonClipping, { Polygon as ClipPolygon } from 'polygon-clipping';
 import { FIRE_ZONES_URL } from '../constants/map';
 import { FireBan } from '../types/ban';
+import { fetchJson } from '../utils/fetchJson';
 import { logger } from '../utils/logger';
-import { fetchJson } from './fetchJson';
 import { Collector } from './types';
 
 interface ZoneFeature {

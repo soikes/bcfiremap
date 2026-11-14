@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'bun:test';
 import osmBright from '../assets/map-style/osm-bright.json';
 import { BASEMAP_STYLE } from './map';
 
@@ -30,7 +31,7 @@ describe('BASEMAP_STYLE', () => {
   });
 
   it('only uses vector layers that OpenFreeMap provides', () => {
-    const used = new Set(style.layers.map(layer => layer['source-layer']).filter(Boolean));
+    const used = new Set(style.layers.flatMap(layer => layer['source-layer'] ?? []));
     used.forEach(name => expect(OPENFREEMAP_LAYERS).toContain(name));
   });
 

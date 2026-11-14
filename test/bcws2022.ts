@@ -1,6 +1,6 @@
 // Attribute rows from the Internet Archive's 2022-08-03 capture of the BC Wildfire Service feed. The capture had no geometry, so the shape is a placeholder.
 const PLACEHOLDER_SHAPE = {
-  type: 'Polygon',
+  type: 'Polygon' as const,
   coordinates: [[[-120, 49], [-119, 49], [-119, 50], [-120, 50], [-120, 49]]],
 };
 

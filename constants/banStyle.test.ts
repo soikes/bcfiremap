@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'bun:test';
 import { SAMPLE_BANS } from '../test/fixtures';
 import { BAN_COLORS, LEVEL_LABEL, TYPE_LABEL, levelColor } from './banStyle';
 

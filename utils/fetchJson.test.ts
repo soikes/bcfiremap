@@ -1,7 +1,10 @@
+import { afterEach, describe, expect, it, jest, mock } from 'bun:test';
 import { fetchJson } from './fetchJson';
 
+const realFetch = globalThis.fetch;
+
 const mockFetch = (impl: (url: string, init?: RequestInit) => Promise<unknown>) => {
-  globalThis.fetch = jest.fn(impl) as unknown as typeof fetch;
+  globalThis.fetch = mock(impl) as unknown as typeof fetch;
 };
 
 /** A fetch that never answers and rejects as soon as its signal is, or becomes, aborted. */
@@ -13,6 +16,7 @@ const hangingFetch = (_url: string, init?: RequestInit) =>
 
 afterEach(() => {
   jest.useRealTimers();
+  globalThis.fetch = realFetch;
 });
 
 describe('fetchJson', () => {
@@ -30,9 +34,8 @@ describe('fetchJson', () => {
     mockFetch(hangingFetch);
     const controller = new AbortController();
     const request = fetchJson('https://example.test/data', controller.signal);
-    const assertion = expect(request).rejects.toThrow('aborted');
     controller.abort();
-    await assertion;
+    await expect(request).rejects.toThrow('aborted');
   });
 
   it('aborts when the caller signal is already aborted', async () => {
@@ -46,8 +49,7 @@ describe('fetchJson', () => {
     jest.useFakeTimers();
     mockFetch(hangingFetch);
     const request = fetchJson('https://example.test/data', undefined, 1000);
-    const assertion = expect(request).rejects.toThrow('aborted');
     jest.advanceTimersByTime(1000);
-    await assertion;
+    await expect(request).rejects.toThrow('aborted');
   });
 });

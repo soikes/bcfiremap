@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'bun:test';
 import { makeBan } from '../test/fixtures';
 import { bansToFeatureCollection, pointToFeatureCollection } from './geojson';
 

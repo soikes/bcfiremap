@@ -1,7 +1,9 @@
+import { describe, expect, it } from 'bun:test';
+import { BanType } from '../types/ban';
 import { classifyBan } from './classifyBan';
 
 describe('classifyBan', () => {
-  it.each([
+  it.each<[string, BanType]>([
     ['Category 1 campfire prohibition', 'campfire'],
     ['Campfire', 'campfire'],
     ['CATEGORY 1 CAMPFIRE', 'campfire'],

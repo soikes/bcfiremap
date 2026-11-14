@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'bun:test';
 import { pointInPolygon } from './pointInPolygon';
 
 const ring = (points: [number, number][]) =>

@@ -1,5 +1,5 @@
 import type { Polygon } from 'geojson';
-import { SourceStatus } from '../collectors/types';
+import { SourceStatus } from '../types/api';
 import { FireBan } from '../types/ban';
 
 /** Builds a closed rectangular Polygon from its edges. */
