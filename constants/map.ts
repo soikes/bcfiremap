@@ -19,7 +19,11 @@ export const BASEMAP_STYLE = {
   glyphs: `${OPENFREEMAP}/fonts/{fontstack}/{range}.pbf`,
 } as unknown as StyleSpecification;
 
-export const INITIAL_VIEW = { latitude: 54, longitude: -125, zoom: 4.5 };
+/** The map opens fitted to the Capital Regional District's municipalities (Sooke to Sidney), which is where the local rules are. */
+export const INITIAL_VIEW = {
+  bounds: [[-123.95, 48.28], [-123.22, 48.76]] as [[number, number], [number, number]],
+  fitBoundsOptions: { padding: 16 },
+};
 
 /** Font stacks OpenFreeMap serves; every label layer must use one of these. */
 export const OPENFREEMAP_FONTS = ['Noto Sans Regular', 'Noto Sans Bold', 'Noto Sans Italic'];

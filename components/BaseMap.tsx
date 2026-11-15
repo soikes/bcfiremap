@@ -9,7 +9,7 @@ interface Props {
   children?: ReactNode;
 }
 
-/** Full-size MapLibre map centred on BC that reports clicks as a LatLng. */
+/** Full-size MapLibre map that opens on the Capital Regional District and reports clicks as a LatLng. */
 export function BaseMap({ onClick, children }: Props) {
   function handleClick(e: MapLayerMouseEvent) {
     onClick({ latitude: e.lngLat.lat, longitude: e.lngLat.lng });
