@@ -1,7 +1,8 @@
 import { useMemo } from "react";
 import { BanLevel, FireBan } from "../types/ban";
 import { LatLng } from "../types/geo";
-import { active } from "../utils/bans";
+import { PERMISSIONS } from "../constants/ban";
+import { permissionAt } from "../utils/bans";
 import { pointInGeometry } from "../utils/geometry";
 import { logger } from "../utils/logger";
 
@@ -24,7 +25,7 @@ function covers(ban: FireBan, location: LatLng): boolean {
   }
 }
 
-/** Returns the bans whose area contains `location`, active ones first and each group broadest first; empty when `location` is null. */
+/** Returns the bans whose area contains `location`, strictest permission first and each group broadest first; empty when `location` is null. */
 export function useFireBans(
   bans: FireBan[],
   location: LatLng | null,
@@ -35,7 +36,7 @@ export function useFireBans(
       .filter((ban) => covers(ban, location))
       .sort(
         (a, b) =>
-          Number(active(b)) - Number(active(a)) ||
+          PERMISSIONS.indexOf(permissionAt(a)) - PERMISSIONS.indexOf(permissionAt(b)) ||
           LEVEL_ORDER[a.level] - LEVEL_ORDER[b.level],
       );
     logger.log(

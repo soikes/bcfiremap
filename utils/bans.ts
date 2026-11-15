@@ -1,8 +1,8 @@
 import { LOAD_STATUSES } from '../constants/api';
 import { AREA_KINDS } from '../constants/area';
-import { BAN_LEVELS, BAN_TYPES } from '../constants/ban';
+import { ACTIVITIES, BAN_LEVELS, PERMISSIONS } from '../constants/ban';
 import { BansResponse, SourceStatus } from '../types/api';
-import { FireBan } from '../types/ban';
+import { FireBan, Period, Permission } from '../types/ban';
 import { logger } from './logger';
 import { isDateInMonthDayRange } from './monthDay';
 
@@ -19,13 +19,29 @@ function compareToNow(date: string, now: Date): -1 | 0 | 1 | undefined {
   return time < now.getTime() ? -1 : 1;
 }
 
-/** True if the ban is in force at `now`: it has started and not passed its expiry (a date-only expiry counts through that whole day), and, for a standing ban, `now` is inside one of its yearly periods. Dates that can't be read are ignored. */
-export function active(ban: FireBan, now = new Date()): boolean {
-  if (ban.effectiveDate && compareToNow(ban.effectiveDate, now) === 1) return false;
-  if (ban.expiryDate && compareToNow(ban.expiryDate, now) === -1) return false;
-  if (!ban.annualEffectivePeriod) return true;
-  return [ban.annualEffectivePeriod].flat().some(range => isDateInMonthDayRange(now, range));
+/** True if the period covers `now`: it has started and not passed its end (a date-only end counts through that whole day), and, if it repeats yearly, `now` is inside its yearly range. Dates that can't be read are ignored. */
+function covers(period: Period, now: Date): boolean {
+  if (period.from && compareToNow(period.from, now) === 1) return false;
+  if (period.until && compareToNow(period.until, now) === -1) return false;
+  return !period.annual || isDateInMonthDayRange(now, period.annual);
 }
+
+/** Returns the first of the ban's periods that covers `now`, or undefined when none does. */
+export const currentPeriod = (ban: FireBan, now = new Date()): Period | undefined =>
+  ban.periods.find(period => covers(period, now));
+
+/** Returns what the ban permits at `now`: the permission of its current period, or its `otherwise` when no period covers `now`. */
+export const permissionAt = (ban: FireBan, now = new Date()): Permission =>
+  currentPeriod(ban, now)?.permission ?? ban.otherwise;
+
+/** True if the permission limits the activity, that is, anything but allowed. */
+export const restricts = (permission: Permission): boolean => permission !== 'allowed';
+
+/** Returns the periods and `otherwise` for an activity prohibited from a date (or always, with no date) and allowed before that. */
+export const prohibitedFrom = (from?: string): Pick<FireBan, 'periods' | 'otherwise'> => ({
+  periods: [{ permission: 'prohibited', from }],
+  otherwise: 'allowed',
+});
 
 /** True if the value is a non-null object. */
 const isObject = (value: unknown): value is Fields => typeof value === 'object' && value !== null;
@@ -48,6 +64,17 @@ const isApplicability = (value: unknown) =>
   Array.isArray(value.includeAreaKinds) &&
   value.includeAreaKinds.every(kind => isOneOf(AREA_KINDS, kind));
 
+/** True if the value is a "MM-DD" month and day. */
+const isMonthDay = (value: unknown) => typeof value === 'string' && /^\d{2}-\d{2}$/.test(value);
+
+/** True if the value is a permission with optional dates and an optional yearly range. */
+const isPeriod = (value: unknown): value is Period =>
+  isObject(value) &&
+  isOneOf(PERMISSIONS, value.permission) &&
+  isOptionalString(value.from) &&
+  isOptionalString(value.until) &&
+  (value.annual === undefined || (isObject(value.annual) && isMonthDay(value.annual.start) && isMonthDay(value.annual.end)));
+
 /** True if the value has every field the map and panel rely on, with an https bulletin URL if it has one. */
 export function isFireBan(value: unknown): value is FireBan {
   return (
@@ -56,11 +83,12 @@ export function isFireBan(value: unknown): value is FireBan {
     typeof value.source === 'string' &&
     isOneOf(BAN_LEVELS, value.level) &&
     typeof value.region === 'string' &&
-    isOneOf(BAN_TYPES, value.type) &&
+    isOneOf(ACTIVITIES, value.activity) &&
     typeof value.description === 'string' &&
     isOptionalString(value.title) &&
-    isOptionalString(value.effectiveDate) &&
-    isOptionalString(value.expiryDate) &&
+    Array.isArray(value.periods) &&
+    value.periods.every(isPeriod) &&
+    isOneOf(PERMISSIONS, value.otherwise) &&
     isOptionalString(value.authorityId) &&
     (value.applicability === undefined || isApplicability(value.applicability)) &&
     (value.url === undefined || (typeof value.url === 'string' && value.url.startsWith('https://'))) &&

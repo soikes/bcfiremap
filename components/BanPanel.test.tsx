@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, mock } from 'bun:test';
-import { makeBan, makeInactiveBan, makeSource } from '../test/fixtures';
+import { makeAllowedBan, makeBan, makePermitBan, makeSource } from '../test/fixtures';
 import { SourceStatus } from '../types/api';
 import { FireBan } from '../types/ban';
 import { BanPanel, BanPanelFallback } from './BanPanel';
@@ -15,29 +15,34 @@ describe('BanPanel title', () => {
   it('renders nothing when every source loaded and nothing matched', () => {
     const { container } = renderPanel([], [ok]);
     expect(container).toBeEmptyDOMElement();
-    expect(screen.queryByText(/No fire bans found/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/No fire restrictions found/)).not.toBeInTheDocument();
   });
 
   it('uses the singular for one ban', () => {
     renderPanel([makeBan()], [ok]);
-    expect(screen.getByText('1 fire ban in effect')).toBeInTheDocument();
+    expect(screen.getByText('1 fire restriction in effect')).toBeInTheDocument();
   });
 
-  it('counts only active bans in the title and still lists inactive ones', () => {
-    renderPanel([makeBan({ id: 'a', region: 'Active Place' }), makeInactiveBan({ id: 'b', region: 'Dormant Place' })], [ok]);
-    expect(screen.getByText('1 fire ban in effect')).toBeInTheDocument();
+  it('counts a by-permit-only activity as a restriction', () => {
+    renderPanel([makePermitBan({ id: 'a' }), makeBan({ id: 'b' }), makeAllowedBan({ id: 'c' })], [ok]);
+    expect(screen.getByText('2 fire restrictions in effect')).toBeInTheDocument();
+  });
+
+  it('counts only restricted activities in the title and still lists allowed ones', () => {
+    renderPanel([makeBan({ id: 'a', region: 'Active Place' }), makeAllowedBan({ id: 'b', region: 'Dormant Place' })], [ok]);
+    expect(screen.getByText('1 fire restriction in effect')).toBeInTheDocument();
     expect(screen.getByText('Dormant Place')).toBeInTheDocument();
   });
 
-  it('says no bans are in effect when every ban found is inactive', () => {
-    renderPanel([makeInactiveBan()], [ok]);
-    expect(screen.getByText('No fire bans in effect right now')).toBeInTheDocument();
+  it('says no restrictions are in effect when every activity found is allowed', () => {
+    renderPanel([makeAllowedBan()], [ok]);
+    expect(screen.getByText('No fire restrictions in effect right now')).toBeInTheDocument();
   });
 
   it('uses the plural and lists every ban for several', () => {
     renderPanel([makeBan({ id: 'a', region: 'Region A' }), makeBan({ id: 'b', region: 'Region B' })], [ok]);
 
-    expect(screen.getByText('2 fire bans in effect')).toBeInTheDocument();
+    expect(screen.getByText('2 fire restrictions in effect')).toBeInTheDocument();
     expect(screen.getByText('Region A')).toBeInTheDocument();
     expect(screen.getByText('Region B')).toBeInTheDocument();
   });
@@ -45,13 +50,13 @@ describe('BanPanel title', () => {
   it('says data is loading while a source has not answered yet', () => {
     renderPanel([], [makeSource({ status: 'pending', hasData: false })]);
     expect(screen.getByText('Loading ban data…')).toBeInTheDocument();
-    expect(screen.queryByText('No fire bans found at this location')).not.toBeInTheDocument();
+    expect(screen.queryByText('No fire restrictions found at this location')).not.toBeInTheDocument();
   });
 
   it('says no bans were found only in the sources that loaded when a source failed', () => {
     renderPanel([], [ok, makeSource({ id: 'down', status: 'error', hasData: false })]);
-    expect(screen.getByText('No fire bans found in the sources that loaded')).toBeInTheDocument();
-    expect(screen.queryByText('No fire bans found at this location')).not.toBeInTheDocument();
+    expect(screen.getByText('No fire restrictions found in the sources that loaded')).toBeInTheDocument();
+    expect(screen.queryByText('No fire restrictions found at this location')).not.toBeInTheDocument();
   });
 
   it('says data is loading while one source loads and another has failed', () => {
@@ -61,7 +66,7 @@ describe('BanPanel title', () => {
 
   it('counts the bans found even when every other source failed', () => {
     renderPanel([makeBan()], [makeSource({ id: 'down', status: 'error', hasData: false })]);
-    expect(screen.getByText('1 fire ban in effect')).toBeInTheDocument();
+    expect(screen.getByText('1 fire restriction in effect')).toBeInTheDocument();
   });
 });
 
@@ -70,7 +75,7 @@ describe('BanPanel failure warning', () => {
 
   it('warns that bans may be missing when a source failed, even if bans were found', () => {
     renderPanel([makeBan()], [ok, makeSource({ id: 'down', status: 'error', hasData: false })]);
-    expect(screen.getByText('1 fire ban in effect')).toBeInTheDocument();
+    expect(screen.getByText('1 fire restriction in effect')).toBeInTheDocument();
     expect(screen.getByText(warning)).toBeInTheDocument();
   });
 
@@ -135,7 +140,7 @@ describe('BanPanel sources', () => {
   it('shows stale data with a warning when a refresh failed', () => {
     renderPanel([makeBan()], [makeSource({ name: 'BC Wildfire Service', status: 'error', hasData: true })]);
 
-    expect(screen.getByText('1 fire ban in effect')).toBeInTheDocument();
+    expect(screen.getByText('1 fire restriction in effect')).toBeInTheDocument();
     expect(screen.getByText(/BC Wildfire Service: update failed, showing data from/)).toBeInTheDocument();
   });
 

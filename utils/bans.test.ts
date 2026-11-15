@@ -1,75 +1,96 @@
 import { describe, expect, it } from 'bun:test';
 import { makeBan, makeSource } from '../test/fixtures';
-import { active, failedSources, isFireBan, isSourceStatus, parseBansResponse, validBans } from './bans';
+import { Period, Permission } from '../types/ban';
+import { currentPeriod, failedSources, isFireBan, permissionAt, prohibitedFrom, restricts, isSourceStatus, parseBansResponse, validBans } from './bans';
 
-describe('active', () => {
+describe('permissionAt', () => {
   const noon = (iso: string) => new Date(`${iso}T12:00:00`);
+  const prohibited = (period: Omit<Period, 'permission'> = {}): Period => ({ permission: 'prohibited', ...period });
+  const ban = (otherwise: Permission, ...periods: Period[]) => makeBan({ otherwise, periods });
 
-  it('is active with no expiry date', () => {
-    expect(active(makeBan({ expiryDate: undefined }), noon('2026-07-01'))).toBe(true);
+  it('gives `otherwise` when there are no periods', () => {
+    expect(permissionAt(ban('allowed'), noon('2026-07-01'))).toBe('allowed');
+    expect(permissionAt(ban('by-permit-only'), noon('2026-07-01'))).toBe('by-permit-only');
+    expect(permissionAt(ban('prohibited'), noon('2026-07-01'))).toBe('prohibited');
   });
 
-  it('is active before and on its expiry date, and inactive after it', () => {
-    const ban = makeBan({ expiryDate: '2026-09-30' });
-    expect(active(ban, noon('2026-09-29'))).toBe(true);
-    expect(active(ban, new Date(2026, 8, 30, 23, 59))).toBe(true);
-    expect(active(ban, noon('2026-10-01'))).toBe(false);
+  it('gives a period with no limits at all times', () => {
+    expect(permissionAt(ban('allowed', prohibited()), noon('2026-07-01'))).toBe('prohibited');
   });
 
-  it('compares a full timestamp expiry to the exact time', () => {
-    const ban = makeBan({ expiryDate: '2026-09-30T10:00:00Z' });
-    expect(active(ban, new Date('2026-09-30T09:59:00Z'))).toBe(true);
-    expect(active(ban, new Date('2026-09-30T10:01:00Z'))).toBe(false);
+  it('is allowed before the `from` date and prohibited from that day on', () => {
+    const b = ban('allowed', prohibited({ from: '2026-07-01' }));
+    expect(permissionAt(b, noon('2026-06-30'))).toBe('allowed');
+    expect(permissionAt(b, new Date(2026, 6, 1, 0, 1))).toBe('prohibited');
+    expect(permissionAt(b, noon('2026-07-02'))).toBe('prohibited');
   });
 
-  it('ignores an expiry date it cannot read', () => {
-    expect(active(makeBan({ expiryDate: 'sometime soon' }), noon('2026-07-01'))).toBe(true);
+  it('counts a date-only `until` through the whole day and a timestamp to the exact time', () => {
+    const byDay = ban('allowed', prohibited({ until: '2026-09-30' }));
+    expect(permissionAt(byDay, new Date(2026, 8, 30, 23, 59))).toBe('prohibited');
+    expect(permissionAt(byDay, noon('2026-10-01'))).toBe('allowed');
+    const byTime = ban('allowed', prohibited({ until: '2026-09-30T10:00:00Z' }));
+    expect(permissionAt(byTime, new Date('2026-09-30T09:59:00Z'))).toBe('prohibited');
+    expect(permissionAt(byTime, new Date('2026-09-30T10:01:00Z'))).toBe('allowed');
   });
 
-  it('is inactive before its effective date and active from that day on', () => {
-    const ban = makeBan({ effectiveDate: '2026-07-01' });
-    expect(active(ban, noon('2026-06-30'))).toBe(false);
-    expect(active(ban, new Date(2026, 6, 1, 0, 1))).toBe(true);
-    expect(active(ban, noon('2026-07-02'))).toBe(true);
+  it('ignores dates it cannot read', () => {
+    expect(permissionAt(ban('allowed', prohibited({ from: 'soon' })), noon('2026-07-01'))).toBe('prohibited');
+    expect(permissionAt(ban('allowed', prohibited({ until: 'sometime' })), noon('2026-07-01'))).toBe('prohibited');
   });
 
-  it('compares a full timestamp effective date to the exact time', () => {
-    const ban = makeBan({ effectiveDate: '2026-07-01T10:00:00Z' });
-    expect(active(ban, new Date('2026-07-01T09:59:00Z'))).toBe(false);
-    expect(active(ban, new Date('2026-07-01T10:01:00Z'))).toBe(true);
+  it('follows a yearly range, including one that wraps the new year', () => {
+    const summer = ban('allowed', prohibited({ annual: { start: '06-01', end: '09-30' } }));
+    expect([noon('2026-07-01'), noon('2026-12-01')].map(d => permissionAt(summer, d))).toEqual(['prohibited', 'allowed']);
+    const winter = ban('prohibited', { permission: 'allowed', annual: { start: '10-01', end: '05-31' } });
+    expect([noon('2026-01-10'), noon('2026-11-15'), noon('2026-07-01')].map(d => permissionAt(winter, d))).toEqual(['allowed', 'allowed', 'prohibited']);
   });
 
-  it('ignores an effective date it cannot read', () => {
-    expect(active(makeBan({ effectiveDate: 'soon' }), noon('2026-07-01'))).toBe(true);
+  it('applies the yearly range only inside the from/until dates', () => {
+    const b = ban('allowed', prohibited({ until: '2026-01-01', annual: { start: '01-01', end: '12-31' } }));
+    expect(permissionAt(b, noon('2026-07-01'))).toBe('allowed');
   });
 
-  it('is active only between its effective and expiry dates', () => {
-    const ban = makeBan({ effectiveDate: '2026-06-01', expiryDate: '2026-08-31' });
-    expect([noon('2026-05-31'), noon('2026-07-01'), noon('2026-09-01')].map(d => active(ban, d))).toEqual([false, true, false]);
+  it('gives by permit only in several windows and prohibited between them', () => {
+    const langford = ban(
+      'prohibited',
+      { permission: 'by-permit-only', annual: { start: '11-01', end: '11-30' } },
+      { permission: 'by-permit-only', annual: { start: '03-15', end: '04-15' } },
+    );
+    const at = (iso: string) => permissionAt(langford, noon(iso));
+    expect([at('2026-11-01'), at('2026-11-30'), at('2026-03-15'), at('2026-04-15')]).toEqual(Array(4).fill('by-permit-only'));
+    expect([at('2026-12-01'), at('2026-03-14'), at('2026-04-16'), at('2026-07-01')]).toEqual(Array(4).fill('prohibited'));
   });
 
-  it('is inactive when expired even inside its yearly period', () => {
-    const ban = makeBan({ expiryDate: '2026-01-01', annualEffectivePeriod: { start: '01-01', end: '12-31' } });
-    expect(active(ban, noon('2026-07-01'))).toBe(false);
+  it('uses the first period that covers the day', () => {
+    const b = ban('allowed', { permission: 'by-permit-only', annual: { start: '06-01', end: '06-30' } }, prohibited());
+    expect(permissionAt(b, noon('2026-06-15'))).toBe('by-permit-only');
+    expect(permissionAt(b, noon('2026-07-15'))).toBe('prohibited');
+  });
+});
+
+describe('currentPeriod and restricts', () => {
+  it('returns the covering period, or nothing', () => {
+    const period = { permission: 'prohibited' as const, from: '2026-07-01' };
+    const b = makeBan({ otherwise: 'allowed', periods: [period] });
+    expect(currentPeriod(b, new Date(2026, 7, 1))).toBe(period);
+    expect(currentPeriod(b, new Date(2026, 5, 1))).toBeUndefined();
   });
 
-  it('still follows its yearly period when not expired', () => {
-    const ban = makeBan({ expiryDate: '2030-01-01', annualEffectivePeriod: { start: '06-01', end: '09-30' } });
-    expect(active(ban, noon('2026-07-01'))).toBe(true);
-    expect(active(ban, noon('2026-12-01'))).toBe(false);
+  it('treats everything but allowed as a restriction', () => {
+    expect(['prohibited', 'by-permit-only', 'allowed'].map(p => restricts(p as Permission))).toEqual([true, true, false]);
   });
 
-  it('is active inside any of several yearly periods', () => {
-    const ban = makeBan({ effectiveDate: undefined, annualEffectivePeriod: [{ start: '12-01', end: '03-14' }, { start: '04-16', end: '10-31' }] });
-    expect([active(ban, noon('2026-01-10')), active(ban, noon('2026-07-01')), active(ban, noon('2026-11-15')), active(ban, noon('2026-03-20'))]).toEqual([true, true, false, false]);
+  it('builds prohibited-from-a-date periods', () => {
+    expect(prohibitedFrom('2026-07-01')).toEqual({ periods: [{ permission: 'prohibited', from: '2026-07-01' }], otherwise: 'allowed' });
   });
 });
 
 describe('isFireBan', () => {
   it('accepts a complete ban, with or without the optional fields', () => {
     expect(isFireBan(makeBan())).toBe(true);
-    expect(isFireBan(makeBan({ title: 'T', url: 'https://example.gov', expiryDate: '2026-09-01' }))).toBe(true);
-    expect(isFireBan(makeBan({ title: undefined, effectiveDate: undefined, url: undefined }))).toBe(true);
+    expect(isFireBan(makeBan({ title: 'T', url: 'https://example.gov', periods: [{ permission: 'allowed', from: '2026-01-01', until: '2026-09-01', annual: { start: '06-01', end: '09-30' } }] }))).toBe(true);
+    expect(isFireBan(makeBan({ title: undefined, url: undefined, periods: [] }))).toBe(true);
   });
 
   it('accepts a MultiPolygon geometry', () => {
@@ -83,7 +104,13 @@ describe('isFireBan', () => {
     ['a missing id', { ...makeBan(), id: undefined }],
     ['a numeric id', { ...makeBan(), id: 7 }],
     ['an unknown level', { ...makeBan(), level: 'federal' }],
-    ['an unknown type', { ...makeBan(), type: 'fireworks' }],
+    ['an unknown activity', { ...makeBan(), activity: 'fireworks' }],
+    ['an unknown otherwise', { ...makeBan(), otherwise: 'maybe' }],
+    ['a missing otherwise', { ...makeBan(), otherwise: undefined }],
+    ['periods that are not a list', { ...makeBan(), periods: 'always' }],
+    ['a period with an unknown permission', { ...makeBan(), periods: [{ permission: 'sometimes' }] }],
+    ['a period with a numeric from date', { ...makeBan(), periods: [{ permission: 'allowed', from: 5 }] }],
+    ['a period with a malformed yearly range', { ...makeBan(), periods: [{ permission: 'allowed', annual: { start: 'June', end: '09-30' } }] }],
     ['a missing region', { ...makeBan(), region: undefined }],
     ['a missing description', { ...makeBan(), description: undefined }],
     ['a numeric title', { ...makeBan(), title: 3 }],

@@ -6,6 +6,7 @@ import { Collector } from '../types/collector';
 import { logger } from '../utils/logger';
 import { fetchJson } from '../utils/web';
 import { classifyBan } from '../utils/classifyBan';
+import { prohibitedFrom } from '../utils/bans';
 
 const SOURCE_ID = 'bcws';
 
@@ -78,10 +79,10 @@ function toBan(feature: unknown): FireBan | null {
     authorityId: BCWS_AUTHORITY.id,
     applicability: BCWS_APPLICABILITY,
     region: text(props.FIRE_ZONE_NAME) ?? text(props.FIRE_CENTRE_NAME) ?? 'British Columbia',
-    type: classifyBan([title, description].filter(Boolean).join(' ')),
+    activity: classifyBan([title, description].filter(Boolean).join(' ')),
     title,
     description,
-    effectiveDate: isoDate(props.ACCESS_STATUS_EFFECTIVE_DATE),
+    ...prohibitedFrom(isoDate(props.ACCESS_STATUS_EFFECTIVE_DATE)),
     url: httpsUrl(props.BULLETIN_URL),
     geometry,
   };

@@ -1,11 +1,12 @@
 import type { ExpressionSpecification } from 'maplibre-gl';
-import { BanLevel, BanType } from '../types/ban';
+import { Activity, BanLevel, Permission } from '../types/ban';
 
-/** Map fill/outline colors and the solid card color for a ban that is in force (red) and one that is not (grey). */
-export const STATUS_COLORS = {
-  active:   { fill: 'rgba(220,50,50,0.08)',   stroke: 'rgba(220,50,50,0.65)',   solid: '#dc3232' },
-  inactive: { fill: 'rgba(120,120,120,0.08)', stroke: 'rgba(120,120,120,0.65)', solid: '#757575' },
-} as const;
+/** How each permission looks: its label and icon, its map fill and outline, and the solid colour of its card text and side bar. */
+export const PERMISSION_STYLE: Record<Permission, { label: string; icon: string; fill: string; stroke: string; solid: string }> = {
+  prohibited:       { label: 'Prohibited',     icon: '✕', fill: 'rgba(220,50,50,0.08)',   stroke: 'rgba(220,50,50,0.65)',   solid: '#dc3232' },
+  'by-permit-only': { label: 'By permit only', icon: '!', fill: 'rgba(230,140,0,0.08)',   stroke: 'rgba(230,140,0,0.7)',    solid: '#b26a00' },
+  allowed:          { label: 'Allowed',        icon: '✓', fill: 'rgba(120,120,120,0.08)', stroke: 'rgba(120,120,120,0.65)', solid: '#2e7d32' },
+};
 
 /** Human-readable label for each ban level. */
 export const LEVEL_LABEL: Record<BanLevel, string> = {
@@ -14,22 +15,22 @@ export const LEVEL_LABEL: Record<BanLevel, string> = {
   municipal:           'Municipal',
 };
 
-/** Colours of the "Not permitted" (a ban in force) and "Permitted" (a ban not in force) lines on a ban card. */
-export const PERMISSION_COLORS = { notPermitted: STATUS_COLORS.active.solid, permitted: '#2e7d32' } as const;
-
-/** Name of what each ban type regulates, shown before "Permitted" or "Not permitted". */
-export const TYPE_LABEL: Record<BanType, string> = {
-  'campfire':     'Campfires',
-  'open-burning': 'Open burning',
-  'all-fires':    'All open fires',
-  'category2-3':  'Category 2 & 3 burning',
-  'other':        'Fires',
+/** Name of each activity, shown before its permission. */
+export const ACTIVITY_LABEL: Record<Activity, string> = {
+  'campfire':         'Campfires',
+  'beach-fire':       'Beach fires',
+  'backyard-burning': 'Backyard burning',
+  'open-burning':     'Open burning',
+  'all-fires':        'All open fires',
+  'category2-3':      'Category 2 & 3 burning',
+  'other':            'Fires',
 };
 
-/** Builds a map expression that picks the red or grey STATUS_COLORS entry from a feature's `active` property. */
-export const activeColor = (kind: 'fill' | 'stroke'): ExpressionSpecification => [
-  'case',
-  ['==', ['get', 'active'], true],
-  STATUS_COLORS.active[kind],
-  STATUS_COLORS.inactive[kind],
+/** Builds a map expression that picks the fill or outline colour of a feature's `permission` property. */
+export const permissionColor = (kind: 'fill' | 'stroke'): ExpressionSpecification => [
+  'match',
+  ['get', 'permission'],
+  'prohibited', PERMISSION_STYLE.prohibited[kind],
+  'by-permit-only', PERMISSION_STYLE['by-permit-only'][kind],
+  PERMISSION_STYLE.allowed[kind],
 ];

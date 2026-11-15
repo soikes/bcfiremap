@@ -1,25 +1,22 @@
-import { FireBan, BanType } from "../types/ban";
+import { Activity, FireBan, Period, Permission } from "../types/ban";
 import { Authority } from "../types/authority";
 import { Collector } from "../types/collector";
 import { fetchAreas } from "../utils/abms";
 import { logger } from "../utils/logger";
-import { MonthDay, MonthDayRange } from "../utils/monthDay";
 
 export interface StandingBanConfig {
   authority: Authority;
   municipalityName: string;
   abmsName: string;
   key?: string;
-  type?: BanType;
-  title: string;
+  activity?: Activity;
   description: string;
   rulesUrl: string;
-  effectiveDate?: string;
-  expiryDate?: string;
-  annualEffectivePeriod?: MonthDayRange | MonthDayRange[];
+  periods?: Period[];
+  otherwise?: Permission;
 }
 
-/** Builds one of a municipality's standing bans over its boundary. */
+/** Builds one of a municipality's standing rules over its boundary: prohibited outside its periods unless the config says otherwise. */
 export function buildStandingBan(
   config: StandingBanConfig,
   geometry: FireBan["geometry"],
@@ -29,22 +26,17 @@ export function buildStandingBan(
     source: config.authority.id,
     level: "municipal",
     region: config.municipalityName,
-    type: config.type ?? "all-fires",
-    title: config.title,
+    activity: config.activity ?? "all-fires",
     description: config.description,
     url: config.rulesUrl,
     authorityId: config.authority.id,
-    effectiveDate: config.effectiveDate,
-    expiryDate: config.expiryDate,
-    annualEffectivePeriod: config.annualEffectivePeriod ?? {
-      start: "01-01",
-      end: "12-31",
-    },
+    periods: config.periods ?? [],
+    otherwise: config.otherwise ?? "prohibited",
     geometry,
   };
 }
 
-/** Creates a collector that puts a municipality's standing bans (one config each, all for the same municipality) on its ABMS boundary. */
+/** Creates a collector that puts a municipality's standing rules (one config each, all for the same municipality) on its ABMS boundary. */
 export function standingBanCollector(
   config: StandingBanConfig | StandingBanConfig[],
 ): Collector {
@@ -53,7 +45,7 @@ export function standingBanCollector(
   return {
     id: authority.id,
     name: municipalityName,
-    coverage: `The standing open fire prohibitions inside the ${municipalityName} boundary.`,
+    coverage: `The standing open fire rules inside the ${municipalityName} boundary.`,
     attribution: `${municipalityName} fire rules; boundary contains information licensed under the Open Government Licence – British Columbia.`,
     refetchIntervalMs: 7 * 24 * 60 * 60 * 1000,
     collect: async (signal) => {
@@ -63,7 +55,7 @@ export function standingBanCollector(
         signal,
       );
       if (!area) throw new Error(`${municipalityName} boundary not found`);
-      logger.log(`[${authority.id}] built ${configs.length} standing ban(s)`);
+      logger.log(`[${authority.id}] built ${configs.length} standing rule(s)`);
       return configs.map((each) => buildStandingBan(each, area.geometry));
     },
   };

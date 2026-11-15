@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Layer, Source } from 'react-map-gl/maplibre';
-import { activeColor } from '../constants/banStyle';
+import { permissionColor } from '../constants/banStyle';
 import { FireBan } from '../types/ban';
 import { bansToFeatureCollection } from '../utils/geometry';
 import { logger } from '../utils/logger';
@@ -9,7 +9,7 @@ interface Props {
   bans: FireBan[];
 }
 
-/** Draws each ban's jurisdiction as one source with a fill layer and a line layer, red where the ban is active and grey where it is not. */
+/** Draws each ban's jurisdiction as one source with a fill layer and a line layer, red where the activity is prohibited, amber where it is by permit only and grey where it is allowed. */
 export function BanPolygons({ bans }: Props) {
   const data = useMemo(() => {
     const collection = bansToFeatureCollection(bans);
@@ -19,8 +19,8 @@ export function BanPolygons({ bans }: Props) {
 
   return (
     <Source id="bans" type="geojson" data={data}>
-      <Layer id="ban-fill" type="fill" paint={{ 'fill-color': activeColor('fill') }} />
-      <Layer id="ban-outline" type="line" paint={{ 'line-color': activeColor('stroke'), 'line-width': 2 }} />
+      <Layer id="ban-fill" type="fill" paint={{ 'fill-color': permissionColor('fill') }} />
+      <Layer id="ban-outline" type="line" paint={{ 'line-color': permissionColor('stroke'), 'line-width': 2 }} />
     </Source>
   );
 }

@@ -1,6 +1,6 @@
 import { SourceStatus } from "../types/api";
 import { FireBan } from "../types/ban";
-import { active, failedSources } from "../utils/bans";
+import { failedSources, permissionAt, restricts } from "../utils/bans";
 import { BanCard } from "./BanCard";
 import "./BanPanel.css";
 
@@ -10,16 +10,16 @@ interface Props {
   onClose: () => void;
 }
 
-/** Headline for the panel, based on the bans in effect, the inactive bans found and whether every source loaded; null when every source loaded and nothing was found, so there is nothing to show. */
+/** Headline for the panel, based on the restrictions in effect, the unrestricted bans found and whether every source loaded; null when every source loaded and nothing was found, so there is nothing to show. */
 function panelTitle(bans: FireBan[], sources: SourceStatus[]): string | null {
-  const inEffect = bans.filter((ban) => active(ban)).length;
+  const inEffect = bans.filter((ban) => restricts(permissionAt(ban))).length;
   if (inEffect > 0)
-    return `${inEffect} fire ban${inEffect !== 1 ? "s" : ""} in effect`;
-  if (bans.length > 0) return "No fire bans in effect right now";
+    return `${inEffect} fire restriction${inEffect !== 1 ? "s" : ""} in effect`;
+  if (bans.length > 0) return "No fire restrictions in effect right now";
   if (sources.some((s) => s.status === "pending" && !s.hasData))
     return "Loading ban data…";
   if (failedSources(sources).length > 0)
-    return "No fire bans found in the sources that loaded";
+    return "No fire restrictions found in the sources that loaded";
   return null;
 }
 

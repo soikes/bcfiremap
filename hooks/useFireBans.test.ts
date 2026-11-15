@@ -1,6 +1,6 @@
 import { renderHook } from '@testing-library/react';
 import { describe, expect, it, spyOn } from 'bun:test';
-import { SAMPLE_BANS, makeBan, makeInactiveBan } from '../test/fixtures';
+import { SAMPLE_BANS, makeAllowedBan, makeBan, makePermitBan } from '../test/fixtures';
 import { FireBan } from '../types/ban';
 import { LatLng } from '../types/geo';
 import { useFireBans } from './useFireBans';
@@ -73,9 +73,21 @@ describe('useFireBans', () => {
     expect(result.current).toEqual([]);
   });
 
-  it('keeps inactive bans and lists active ones first', () => {
+  it('lists prohibited first, then by permit only, then allowed, each broadest first', () => {
     const bans = [
-      makeInactiveBan({ id: 'dormant-provincial', level: 'provincial' }),
+      makeAllowedBan({ id: 'allowed-provincial', level: 'provincial' }),
+      makePermitBan({ id: 'permit-municipal', level: 'municipal' }),
+      makeBan({ id: 'prohibited-municipal', level: 'municipal' }),
+      makePermitBan({ id: 'permit-provincial', level: 'provincial' }),
+    ];
+    expect(idsAt({ latitude: 49.5, longitude: -119.5 }, bans)).toEqual([
+      'prohibited-municipal', 'permit-provincial', 'permit-municipal', 'allowed-provincial',
+    ]);
+  });
+
+  it('keeps allowed bans and lists restricted ones first', () => {
+    const bans = [
+      makeAllowedBan({ id: 'dormant-provincial', level: 'provincial' }),
       makeBan({ id: 'live-municipal', level: 'municipal' }),
       makeBan({ id: 'live-provincial', level: 'provincial' }),
     ];

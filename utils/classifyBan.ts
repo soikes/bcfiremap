@@ -1,7 +1,7 @@
-import { BanType } from '../types/ban';
+import { Activity } from '../types/ban';
 
-/** Maps a source's free-text prohibition description to a BanType, falling back to 'other'. */
-export function classifyBan(text: string): BanType {
+/** Maps a source's free-text prohibition description to an Activity, falling back to 'other'. */
+export function classifyBan(text: string): Activity {
   const t = text.toLowerCase();
   const campfire = /category\s*1|campfire/.test(t);
   const larger = /category\s*[23]/.test(t);

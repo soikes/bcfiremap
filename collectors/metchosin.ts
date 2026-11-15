@@ -12,23 +12,22 @@ export const metchosinCollector = standingBanCollector([
   {
     ...base,
     key: "beach-fires",
-    type: "campfire",
-    title: "Beach fires",
+    activity: "beach-fire",
     description:
       "The District of Metchosin prohibits beach fires at any time of year (Fire Regulation and Prevention Bylaw No. 269, 1996). " +
       "Propane fire pits are allowed. " +
       "BC Wildfire Service orders do not apply inside the district.",
-    annualEffectivePeriod: { start: "01-01", end: "12-31" },
   },
   {
     ...base,
     key: "backyard-burning",
-    type: "open-burning",
-    title: "Backyard burning",
+    activity: "backyard-burning",
     description:
       "The District of Metchosin allows backyard open burning only from October 1 to May 31, in daylight hours and with only dry yard debris from the same property. " +
       "It is not permitted from June 1 to September 30. " +
       "BC Wildfire Service orders do not apply inside the district.",
-    annualEffectivePeriod: { start: "06-01", end: "09-30" },
+    periods: [
+      { permission: "allowed", annual: { start: "10-01", end: "05-31" } },
+    ],
   },
 ]);

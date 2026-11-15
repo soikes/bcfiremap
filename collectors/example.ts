@@ -3,6 +3,7 @@ import polygonClipping, { Polygon as ClipPolygon } from 'polygon-clipping';
 import { FIRE_ZONES_URL } from '../constants/map';
 import { FireBan } from '../types/ban';
 import { Collector } from '../types/collector';
+import { prohibitedFrom } from '../utils/bans';
 import { logger } from '../utils/logger';
 import { fetchJson } from '../utils/web';
 
@@ -38,9 +39,9 @@ const LOCAL_BANS: FireBan[] = [
     source: 'example',
     level: 'regional-district',
     region: 'Thompson-Nicola Regional District',
-    type: 'open-burning',
+    activity: 'open-burning',
     description: 'Category 2 and 3 open burning is prohibited throughout the Thompson-Nicola Regional District.',
-    effectiveDate: '2026-06-15',
+    ...prohibitedFrom('2026-06-15'),
     geometry: rect(50, -121.5, 51.5, -119.8),
   },
   {
@@ -48,9 +49,9 @@ const LOCAL_BANS: FireBan[] = [
     source: 'example',
     level: 'regional-district',
     region: 'Central Okanagan Regional District',
-    type: 'open-burning',
+    activity: 'open-burning',
     description: 'Open burning is prohibited throughout the Central Okanagan Regional District.',
-    effectiveDate: '2026-06-20',
+    ...prohibitedFrom('2026-06-20'),
     geometry: rect(49.7, -119.9, 50.2, -119),
   },
   {
@@ -58,9 +59,9 @@ const LOCAL_BANS: FireBan[] = [
     source: 'example',
     level: 'municipal',
     region: 'City of Kamloops',
-    type: 'all-fires',
+    activity: 'all-fires',
     description: 'All open fires, including campfires and fire pits, are prohibited within City of Kamloops limits.',
-    effectiveDate: '2026-06-01',
+    ...prohibitedFrom('2026-06-01'),
     geometry: rect(50.62, -120.65, 50.78, -120.2),
   },
   {
@@ -68,9 +69,9 @@ const LOCAL_BANS: FireBan[] = [
     source: 'example',
     level: 'municipal',
     region: 'City of Kelowna',
-    type: 'category2-3',
+    activity: 'category2-3',
     description: 'Category 2 and 3 open burning is prohibited within City of Kelowna limits year-round.',
-    effectiveDate: '2026-05-15',
+    ...prohibitedFrom('2026-05-15'),
     geometry: rect(49.8, -119.65, 49.97, -119.35),
   },
 ];
@@ -91,10 +92,10 @@ export function buildExampleBans(zones: unknown): FireBan[] {
       source: 'example',
       level: 'provincial',
       region: 'Kamloops Fire Centre',
-      type: 'campfire',
+      activity: 'campfire',
       title: 'Campfire · Category 1',
       description: 'Category 1 campfires are prohibited.',
-      effectiveDate: '2026-07-01',
+      ...prohibitedFrom('2026-07-01'),
       geometry: centreGeometry,
     });
   } else {
@@ -106,10 +107,10 @@ export function buildExampleBans(zones: unknown): FireBan[] {
       source: 'example',
       level: 'provincial',
       region: 'Penticton Fire Zone',
-      type: 'category2-3',
+      activity: 'category2-3',
       title: 'Open fire · Category 2 and 3',
       description: 'Category 2 and Category 3 open fires are prohibited.',
-      effectiveDate: '2026-06-15',
+      ...prohibitedFrom('2026-06-15'),
       geometry: zoneGeometry,
     });
   } else {

@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, mock } from "bun:test";
-import { active, isFireBan } from "../utils/bans";
+import { isFireBan, permissionAt } from "../utils/bans";
+import { Collector } from "../types/collector";
+import { saanichCollector } from "./saanich";
 import { OAK_BAY_AUTHORITY } from "../constants/authority";
 import { buildStandingBan } from "./standingBan";
 import { oakBayCollector } from "./oakBay";
@@ -29,42 +31,44 @@ afterEach(() => {
 });
 
 describe("buildStandingBan", () => {
-  it("builds a valid municipal all-fires ban with no BCWS applicability rule", () => {
-    const ban = buildStandingBan(
-      {
-        authority: OAK_BAY_AUTHORITY,
-        municipalityName: "X",
-        abmsName: "X",
-        title: "t",
-        description: "d",
-        rulesUrl: "https://example.com",
-      },
-      polygon as never,
-    );
+  const config = {
+    authority: OAK_BAY_AUTHORITY,
+    municipalityName: "X",
+    abmsName: "X",
+    description: "d",
+    rulesUrl: "https://example.com",
+  };
+
+  it("builds a valid municipal all-fires ban, prohibited all year, with no BCWS applicability rule", () => {
+    const ban = buildStandingBan(config, polygon as never);
     expect(isFireBan(ban)).toBe(true);
     expect(ban).toMatchObject({
       level: "municipal",
-      type: "all-fires",
+      activity: "all-fires",
       authorityId: "oak-bay",
+      periods: [],
+      otherwise: "prohibited",
     });
     expect(ban.applicability).toBeUndefined();
-    expect(ban.annualEffectivePeriod).toEqual({ start: "01-01", end: "12-31" });
   });
 
-  it("includes the annual time range when provided", () => {
+  it("takes the activity, key, periods and otherwise from the config", () => {
     const ban = buildStandingBan(
       {
-        authority: OAK_BAY_AUTHORITY,
-        municipalityName: "X",
-        abmsName: "X",
-        title: "t",
-        description: "d",
-        rulesUrl: "https://example.com",
-        annualEffectivePeriod: { start: "05-01", end: "10-15" },
+        ...config,
+        key: "beach-fires",
+        activity: "beach-fire",
+        otherwise: "allowed",
+        periods: [{ permission: "prohibited", annual: { start: "05-01", end: "10-15" } }],
       },
       polygon as never,
     );
-    expect(ban.annualEffectivePeriod).toEqual({ start: "05-01", end: "10-15" });
+    expect(ban).toMatchObject({
+      id: "oak-bay:beach-fires",
+      activity: "beach-fire",
+      otherwise: "allowed",
+      periods: [{ permission: "prohibited", annual: { start: "05-01", end: "10-15" } }],
+    });
   });
 });
 
@@ -124,7 +128,7 @@ describe("municipal collectors", () => {
   });
 });
 
-describe("seasonal and multi-ban municipal collectors", () => {
+describe("what each municipality permits through the year", () => {
   const answerWith = (name: string) => {
     globalThis.fetch = mock(async () =>
       Response.json({
@@ -137,38 +141,58 @@ describe("seasonal and multi-ban municipal collectors", () => {
       }),
     ) as never;
   };
-
-  it("gives Metchosin a year-round beach fire ban and a summer burning ban", async () => {
-    answerWith("Metchosin");
-    const bans = await metchosinCollector.collect();
-    expect(bans.map((ban) => [ban.id, ban.type])).toEqual([
-      ["metchosin:beach-fires", "campfire"],
-      ["metchosin:backyard-burning", "open-burning"],
-    ]);
+  const DATES = [[1, 15], [3, 20], [4, 20], [5, 20], [7, 15], [10, 20], [11, 15]] as const;
+  const calendar = async (collector: Collector, name: string) => {
+    answerWith(name);
+    const bans = await collector.collect();
     expect(bans.every(isFireBan)).toBe(true);
+    return bans.map((ban) => [
+      ban.id,
+      ban.activity,
+      DATES.map(([m, d]) => permissionAt(ban, new Date(2026, m - 1, d, 12))),
+    ]);
+  };
+  const P = "prohibited", B = "by-permit-only", A = "allowed";
+
+  it("Metchosin prohibits beach fires all year and allows backyard burning from October to May", async () => {
+    expect(await calendar(metchosinCollector, "Metchosin")).toEqual([
+      ["metchosin:beach-fires", "beach-fire", [P, P, P, P, P, P, P]],
+      ["metchosin:backyard-burning", "backyard-burning", [A, A, A, A, P, A, A]],
+    ]);
   });
 
-  it("gives Langford one ban covering every day it does not allow open burning, and none that it does", async () => {
-    answerWith("Langford");
-    const bans = await langfordCollector.collect();
-    expect(bans.map((ban) => ban.id)).toEqual(["langford:open-fires"]);
-    const banned = (month: number, day: number) => active(bans[0], new Date(2026, month - 1, day, 12));
-    expect([banned(11, 1), banned(11, 30), banned(3, 15), banned(4, 15)]).toEqual([false, false, false, false]);
-    expect([banned(12, 1), banned(3, 14), banned(4, 16), banned(10, 31), banned(7, 1)]).toEqual([true, true, true, true, true]);
+  it("Langford allows open burning by permit only in November and from March 15 to April 15", async () => {
+    expect(await calendar(langfordCollector, "Langford")).toEqual([
+      ["langford:open-fires", "open-burning", [P, B, P, P, P, P, B]],
+    ]);
   });
 
-  it("builds the single-ban municipalities with their own id, type and season", async () => {
-    const cases = [
-      [sookeCollector, "Sooke", "open-burning", { start: "05-01", end: "10-31" }],
-      [centralSaanichCollector, "Central Saanich", "open-burning", { start: "05-16", end: "10-15" }],
-      [colwoodCollector, "Colwood", "all-fires", { start: "01-01", end: "12-31" }],
-      [viewRoyalCollector, "View Royal", "all-fires", { start: "01-01", end: "12-31" }],
-    ] as const;
-    for (const [collector, name, type, period] of cases) {
-      answerWith(name);
-      const [ban] = await collector.collect();
-      expect(ban).toMatchObject({ source: collector.id, type, annualEffectivePeriod: period });
-      expect(isFireBan(ban)).toBe(true);
-    }
+  it("Central Saanich allows open burning by permit from October 16 to May 15", async () => {
+    expect(await calendar(centralSaanichCollector, "Central Saanich")).toEqual([
+      ["central-saanich:open-fires", "open-burning", [B, B, B, P, P, B, B]],
+    ]);
+  });
+
+  it("Sooke allows backyard burning from November to April", async () => {
+    expect(await calendar(sookeCollector, "Sooke")).toEqual([
+      ["sooke:open-fires", "backyard-burning", [A, A, A, P, P, P, A]],
+    ]);
+  });
+
+  it("Saanich prohibits all fires from May 1 to October 15", async () => {
+    expect(await calendar(saanichCollector, "Saanich")).toEqual([
+      ["saanich:open-fires", "all-fires", [A, A, A, P, P, A, A]],
+    ]);
+  });
+
+  it.each([
+    [colwoodCollector, "Colwood"],
+    [viewRoyalCollector, "View Royal"],
+    [victoriaCollector, "Victoria"],
+    [oakBayCollector, "Oak Bay"],
+  ])("%#: prohibits all fires all year", async (collector, name) => {
+    const [[, activity, permissions]] = await calendar(collector, name);
+    expect(activity).toBe("all-fires");
+    expect(permissions).toEqual(Array(7).fill(P));
   });
 });

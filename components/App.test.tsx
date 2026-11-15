@@ -78,7 +78,7 @@ describe('App when every source loads', () => {
     await waitFor(() => expect(bannerRows()).toEqual([]));
     clickMap(...INSIDE);
 
-    expect(screen.getByText('6 fire bans in effect')).toBeInTheDocument();
+    expect(screen.getByText('6 fire restrictions in effect')).toBeInTheDocument();
     expect(screen.queryByText(/bans may be missing/)).not.toBeInTheDocument();
   });
 
@@ -89,7 +89,7 @@ describe('App when every source loads', () => {
 
     clickMap(...OUTSIDE);
 
-    expect(screen.queryByText(/fire bans? (in effect|found)/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/fire restrictions? (in effect|found)/)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Close' })).not.toBeInTheDocument();
   });
 });
@@ -108,7 +108,7 @@ describe('App location search', () => {
 
     await userEvent.setup().type(screen.getByRole('searchbox'), 'Test Town{Enter}');
 
-    expect(await screen.findByText('6 fire bans in effect')).toBeInTheDocument();
+    expect(await screen.findByText('6 fire restrictions in effect')).toBeInTheDocument();
     expect(camera.fitBounds).toHaveLength(1);
     expect(camera.flyTo).toEqual([]);
   });
@@ -181,7 +181,7 @@ describe('App when a source fails', () => {
 
     clickMap(...INSIDE);
 
-    expect(screen.getByText('No fire bans found in the sources that loaded')).toBeInTheDocument();
+    expect(screen.getByText('No fire restrictions found in the sources that loaded')).toBeInTheDocument();
     expect(screen.getByText("⚠ Some sources couldn't be checked, so bans may be missing.")).toBeInTheDocument();
     expect(screen.getByText('BC Wildfire Service: unavailable')).toBeInTheDocument();
   });
@@ -196,7 +196,7 @@ describe('App when a source fails', () => {
 
     clickMap(...INSIDE);
 
-    expect(screen.getByText('6 fire bans in effect')).toBeInTheDocument();
+    expect(screen.getByText('6 fire restrictions in effect')).toBeInTheDocument();
     expect(screen.getByText("⚠ Some sources couldn't be checked, so bans may be missing.")).toBeInTheDocument();
   });
 
@@ -237,7 +237,7 @@ describe('App when everything fails', () => {
 
     clickMap(...INSIDE);
 
-    expect(screen.getByText('No fire bans found in the sources that loaded')).toBeInTheDocument();
+    expect(screen.getByText('No fire restrictions found in the sources that loaded')).toBeInTheDocument();
   });
 
   it('does not crash when both sources answer with garbage', async () => {
@@ -280,7 +280,7 @@ describe('App while a source is retried', () => {
 
     await waitFor(() => expect(bannerRows()).toEqual([]));
     clickMap(...INSIDE);
-    expect(screen.getByText('6 fire bans in effect')).toBeInTheDocument();
+    expect(screen.getByText('6 fire restrictions in effect')).toBeInTheDocument();
   });
 
   it('says the source is being retried in the panel while the retry is pending', async () => {

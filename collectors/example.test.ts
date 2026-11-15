@@ -50,7 +50,7 @@ describe('buildExampleBans', () => {
 
   it('builds a single-zone ban from the Penticton Fire Zone only', () => {
     const ban = byId('example:penticton-fire-zone');
-    expect(ban?.type).toBe('category2-3');
+    expect(ban?.activity).toBe('category2-3');
     expect(pointInGeometry(at(1), ban!.geometry)).toBe(true);
     expect(pointInGeometry(at(0), ban!.geometry)).toBe(false);
   });

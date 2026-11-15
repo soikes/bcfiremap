@@ -41,17 +41,18 @@ describe('parseProvincialBans with the real 2022 feed rows', () => {
       authorityId: 'bcws',
       applicability: BCWS_APPLICABILITY,
       region: 'Kamloops',
-      type: 'category2-3',
+      activity: 'category2-3',
       title: 'Partial Prohibition',
       description: 'Category 2, Category 3',
-      effectiveDate: '2022-07-15',
+      periods: [{ permission: 'prohibited', from: '2022-07-15' }],
+      otherwise: 'allowed',
       url: 'https://www2.gov.bc.ca/gov/content?id=AFEC3F8B5E89438CB0AC9E970CE6EE6F',
       geometry: BCWS_2022_FEED.features[2].geometry,
     });
   });
 
   it('reads the effective dates as UTC calendar days', () => {
-    const dates = Object.fromEntries(bans.map(ban => [ban.region, ban.effectiveDate]));
+    const dates = Object.fromEntries(bans.map(ban => [ban.region, ban.periods[0].from]));
     expect(dates).toEqual({
       Cariboo: '2022-07-15',
       Coastal: '2022-07-15',
@@ -63,7 +64,7 @@ describe('parseProvincialBans with the real 2022 feed rows', () => {
   });
 
   it('classifies every row as a Category 2 and 3 ban', () => {
-    expect(bans.every(ban => ban.type === 'category2-3')).toBe(true);
+    expect(bans.every(ban => ban.activity === 'category2-3')).toBe(true);
   });
 });
 
@@ -87,9 +88,9 @@ describe('parseProvincialBans edge cases', () => {
     expect(ban).toMatchObject({
       id: 'bcws:42',
       region: 'Kamloops Fire Zone',
-      type: 'campfire',
+      activity: 'campfire',
       title: 'Campfire · Category 1',
-      effectiveDate: '2026-07-01',
+      periods: [{ permission: 'prohibited', from: '2026-07-01' }],
       url: 'https://example.gov/bulletin',
     });
   });
@@ -122,7 +123,7 @@ describe('parseProvincialBans edge cases', () => {
     const [ban] = parseProvincialBans(
       collection(feature({ PROT_BAP_SYSID: 1, TYPE: 'Fireworks', ACCESS_PROHIBITION_DESCRIPTION: 'No fireworks' })),
     );
-    expect(ban.type).toBe('other');
+    expect(ban.activity).toBe('other');
     expect(ban.title).toBe('Fireworks');
     expect(ban.description).toBe('No fireworks');
   });
@@ -146,7 +147,7 @@ describe('parseProvincialBans edge cases', () => {
         feature({ PROT_BAP_SYSID: 3 }),
       ),
     );
-    expect(bans.map(ban => ban.effectiveDate)).toEqual([undefined, undefined, undefined]);
+    expect(bans.map(ban => ban.periods)).toEqual([[{ permission: 'prohibited', from: undefined }], [{ permission: 'prohibited', from: undefined }], [{ permission: 'prohibited', from: undefined }]]);
   });
 
   it('accepts MultiPolygon geometries', () => {
