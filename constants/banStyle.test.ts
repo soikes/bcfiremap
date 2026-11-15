@@ -13,10 +13,10 @@ describe('permissionColor', () => {
     ]);
   });
 
-  it('uses red for prohibited, amber for by permit only and grey for allowed', () => {
+  it('uses red for prohibited, amber for by permit only and green for allowed', () => {
     expect(PERMISSION_STYLE.prohibited.stroke).toMatch(/^rgba\(220,50,50/);
     expect(PERMISSION_STYLE['by-permit-only'].stroke).toMatch(/^rgba\(230,140,0/);
-    expect(PERMISSION_STYLE.allowed.stroke).toMatch(/^rgba\(120,120,120/);
+    expect(PERMISSION_STYLE.allowed.stroke).toMatch(/^rgba\(46,125,50/);
   });
 });
 

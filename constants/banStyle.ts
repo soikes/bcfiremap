@@ -5,7 +5,7 @@ import { Activity, BanLevel, Permission } from '../types/ban';
 export const PERMISSION_STYLE: Record<Permission, { label: string; icon: string; fill: string; stroke: string; solid: string }> = {
   prohibited:       { label: 'Prohibited',     icon: '✕', fill: 'rgba(220,50,50,0.08)',   stroke: 'rgba(220,50,50,0.65)',   solid: '#dc3232' },
   'by-permit-only': { label: 'By permit only', icon: '!', fill: 'rgba(230,140,0,0.08)',   stroke: 'rgba(230,140,0,0.7)',    solid: '#b26a00' },
-  allowed:          { label: 'Allowed',        icon: '✓', fill: 'rgba(120,120,120,0.08)', stroke: 'rgba(120,120,120,0.65)', solid: '#2e7d32' },
+  allowed:          { label: 'Allowed',        icon: '✓', fill: 'rgba(46,125,50,0.08)',    stroke: 'rgba(46,125,50,0.65)',    solid: '#2e7d32' },
 };
 
 /** Human-readable label for each ban level. */
