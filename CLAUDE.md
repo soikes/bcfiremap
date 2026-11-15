@@ -40,6 +40,8 @@ Env precedence is the same with and without mise: a shell variable wins, then `.
 - `components/App.tsx` — root component; provides the react-query client, owns the selected-location state and composes the map layers and `BanPanel`
 - `components/BaseMap.tsx` — full-size MapLibre map that reports clicks as a `LatLng`
 - `components/FireZones.tsx`, `BanPolygons.tsx`, `SelectedPin.tsx` — map layers built from react-map-gl's `Source` and `Layer`
+- `components/LocationSearch.tsx` — search box and "My location" button over the map. A search goes to Nominatim (see Place search): one match is chosen straight away, several are listed. Reports the chosen place as a `LatLng`; `App` selects it and asks `MapFocus` to move
+- `components/MapFocus.tsx` — draws nothing; each time its `target` is a new object it fits the map to the bans covering the point (`fitBounds`, padded for the results panel, `maxZoom` 12), or flies to the point at zoom 12 when no ban covers it. Map taps never move the camera. Its `bans` are read when `target` changes, so bans that finish loading afterwards don't move the map again
 - `components/BanPanel.tsx`, `BanCard.tsx` — results panel (centred and width-limited on wide screens); lists the bans at the tapped point plus each source's status, coverage and attribution, with a warning when a source failed
 - `components/SourceBanner.tsx` — a stack of rows over the map, one per source that is loading (quiet, spinner; any request in flight, first load or refresh), being retried (yellow, spinner) or failed with no data once retries ran out (yellow, "Bans may be missing"). Rows keep source order and change state in place; a row leaves as soon as its source has loaded, and a failed source that tries again shows as loading. Text wraps instead of being cut off
 - `components/ErrorBoundary.tsx` — catches render errors in the ban layers and the panel so the base map keeps working; tries again when its `resetKey` changes
@@ -52,6 +54,9 @@ Env precedence is the same with and without mise: a shell variable wins, then `.
   - `classifyBan.ts` — maps free text to a `BanType`
   - `abms.ts` — fetches and parses BC administrative boundaries (regional districts, electoral areas, municipalities) into `Area`s
   - `areas.ts` — `areasAt` (which areas contain a point) and `appliesAt` (whether a ban binds there, using its `applicability` rule)
+  - `geocode.ts` — `searchPlaces`: Nominatim lookup limited to BC (see Place search)
+  - `geolocation.ts` — `currentLocation`: the browser's position as a `LatLng`, with a message fit to show when it is blocked or unavailable
+  - `bounds.ts` — `focusBounds`: the box containing a point and the areas of the bans covering it
   - `web.ts` — `fetchJson`: GET + JSON with timeout and abort handling, used by collectors and `useBans`
   - `logger.ts` — thin wrapper around `console.log`/`console.error`
 
@@ -80,6 +85,10 @@ The app's own text uses [Work Sans](https://fonts.google.com/specimen/Work+Sans)
 
 The basemap style is [OSM Bright](https://github.com/openmaptiles/osm-bright-gl-style), bundled unchanged in `assets/map-style/osm-bright.json` with its licence (`osm-bright-LICENSE.md`: BSD-3 code, CC BY 4.0 design, so credit is required; it is in the source attribution in `constants/map.ts`). The original points at MapTiler and needs an API key, so `constants/map.ts` overrides three fields: the vector tile source and the font glyphs now come from OpenFreeMap (same OpenMapTiles schema, and the same Noto Sans fonts), and the source attribution is replaced with the combined credit. The sprite (icons) is still loaded from `openmaptiles.github.io`. Layers added by this app (zone labels) must use a font OpenFreeMap serves: Noto Sans Regular, Bold or Italic.
 
+### Place search
+
+`utils/geocode.ts` sends what the user types in the search box to OpenStreetMap's public Nominatim service (`nominatim.openstreetmap.org/search`, results limited to Canada and a box around BC). That is the only thing in the app that sends user input to a third party, so keep it to searches the user submits (no search-as-you-type: Nominatim's usage policy forbids autocomplete, allows about one request per second and wants the app identifiable, which the browser's `Referer` does). It allows cross-origin reads. If traffic grows, switch to a hosted geocoder with an API key. "My location" uses the browser's geolocation and never leaves the device; the position is only used to look up bans in the browser.
+
 ### Fire bans
 
 Where a collector runs depends on its source's licence. Both BC ArcGIS sources (Bans and Prohibitions, and Fire Zones) are listed as **Access Only** in the BC Data Catalogue: reproduction is not permitted without written permission. So they are browser collectors: each visitor's browser fetches them directly, and the server must not fetch, store or re-serve them (this includes the example collector, which builds on the fire zone shapes). The ArcGIS item for the bans layer says Open Government Licence – British Columbia instead, which is where the panel's attribution text comes from; the conflict is unresolved. Sources whose licence allows redistribution can be server collectors.
@@ -92,7 +101,7 @@ Set `PUBLIC_EXAMPLE_BANS=true` (in the shell or in `.env`) when running `mise ru
 
 ## Deploy
 
-nginx sits in front of the Bun API server, in one container. `Dockerfile` builds with `bun run build`, then starts from a non-root nginx image, copies in the `bun` binary, the static site (`dist/public`) and the API server (`dist/server`). `deploy/start.sh` runs both processes and exits when either one stops, so Fly restarts the machine. nginx listens on port 8080, serves the static files and proxies `/api/` to Bun on `127.0.0.1:3000`. `deploy/nginx.conf` holds per-IP rate limiting, gzip, long-lived caching for content-hashed files and the server settings; `deploy/security-headers.conf` holds the response headers incl. the CSP. Keep these in nginx rather than in `fly.toml`, so the app isn't tied to Fly. `fly.toml` configures Fly.io (`fly deploy`); CI deploys on pushes to `main` after typecheck and tests. The CSP allows only `self` plus `https://tiles.openfreemap.org` (tiles, fonts), `https://openmaptiles.github.io` (map icons) and `https://services6.arcgis.com` (BC Wildfire Service data, fetched by the browser); adding or changing a data or basemap host means updating it.
+nginx sits in front of the Bun API server, in one container. `Dockerfile` builds with `bun run build`, then starts from a non-root nginx image, copies in the `bun` binary, the static site (`dist/public`) and the API server (`dist/server`). `deploy/start.sh` runs both processes and exits when either one stops, so Fly restarts the machine. nginx listens on port 8080, serves the static files and proxies `/api/` to Bun on `127.0.0.1:3000`. `deploy/nginx.conf` holds per-IP rate limiting, gzip, long-lived caching for content-hashed files and the server settings; `deploy/security-headers.conf` holds the response headers incl. the CSP. Keep these in nginx rather than in `fly.toml`, so the app isn't tied to Fly. `fly.toml` configures Fly.io (`fly deploy`); CI deploys on pushes to `main` after typecheck and tests. The CSP allows only `self` plus `https://tiles.openfreemap.org` (tiles, fonts), `https://openmaptiles.github.io` (map icons) and `https://services6.arcgis.com` (BC Wildfire Service data, fetched by the browser) and `https://nominatim.openstreetmap.org` (place search); `Permissions-Policy` allows `geolocation` for the site itself; adding or changing a data or basemap host means updating it.
 
 ## Reading Logs
 
