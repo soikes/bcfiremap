@@ -15,7 +15,7 @@ const fontRoutes = () =>
     ]),
   );
 
-const routes = await apiRoutes(SERVER_COLLECTORS);
+const routes = apiRoutes(SERVER_COLLECTORS);
 
 const server = Bun.serve({
   port: DEV_PORT,

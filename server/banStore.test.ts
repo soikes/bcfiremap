@@ -1,8 +1,4 @@
 import { describe, expect, it } from 'bun:test';
-import { randomUUID } from 'node:crypto';
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { makeBan } from '../test/fixtures';
 import { FireBan } from '../types/ban';
 import { Collector } from '../types/collector';
@@ -19,23 +15,9 @@ const collector = (id: string, collect: () => Promise<FireBan[]>, refetchInterva
 
 const noRetries = { retries: 0 };
 
-/** A fresh cache file path (not created) in the temp directory. */
-function testDbPath(): string {
-  const dir = join(tmpdir(), `bcfiremap-test-${randomUUID()}`);
-  mkdirSync(dir, { recursive: true });
-  return join(dir, 'bans.json');
-}
-
-/** A cache file path holding the given text. */
-function dbWith(text: string): string {
-  const path = testDbPath();
-  writeFileSync(path, text);
-  return path;
-}
-
 describe('createBanStore', () => {
   it('reports every source as pending before its first refresh', async () => {
-    const store = await createBanStore([collector('a', async () => [])], { ...noRetries, dbPath: testDbPath() });
+    const store = createBanStore([collector('a', async () => [])], noRetries);
     expect(store.snapshot()).toEqual({
       bans: [],
       sources: [
@@ -47,7 +29,7 @@ describe('createBanStore', () => {
   it('merges the bans from every collector in collector order', async () => {
     const a = collector('a', async () => [makeBan({ id: 'a1' })]);
     const b = collector('b', async () => [makeBan({ id: 'b1' }), makeBan({ id: 'b2' })]);
-    const store = await createBanStore([a, b], { ...noRetries, dbPath: testDbPath() });
+    const store = createBanStore([a, b], noRetries);
 
     await Promise.all([a, b].map(store.refresh));
 
@@ -62,7 +44,7 @@ describe('createBanStore', () => {
     const bad = collector('bad', async () => {
       throw new Error('down');
     });
-    const store = await createBanStore([good, bad], { ...noRetries, dbPath: testDbPath() });
+    const store = createBanStore([good, bad], noRetries);
 
     await Promise.all([good, bad].map(store.refresh));
 
@@ -77,7 +59,7 @@ describe('createBanStore', () => {
       if (fail) throw new Error('down');
       return [makeBan({ id: 'f1' })];
     });
-    const store = await createBanStore([flaky], { ...noRetries, dbPath: testDbPath() });
+    const store = createBanStore([flaky], noRetries);
 
     await store.refresh(flaky);
     const goodTime = store.snapshot().sources[0].updatedAt;
@@ -92,7 +74,7 @@ describe('createBanStore', () => {
   it('drops bans an upstream source no longer lists', async () => {
     let ids = ['x1', 'x2'];
     const shrinking = collector('shrinking', async () => ids.map(id => makeBan({ id })));
-    const store = await createBanStore([shrinking], { ...noRetries, dbPath: testDbPath() });
+    const store = createBanStore([shrinking], noRetries);
 
     await store.refresh(shrinking);
     ids = ['x1'];
@@ -103,7 +85,7 @@ describe('createBanStore', () => {
 
   it('marks a collector that returns something other than a list as failed', async () => {
     const broken = collector('broken', async () => ({ features: [] }) as unknown as FireBan[]);
-    const store = await createBanStore([broken], { ...noRetries, dbPath: testDbPath() });
+    const store = createBanStore([broken], noRetries);
 
     await store.refresh(broken);
 
@@ -112,7 +94,7 @@ describe('createBanStore', () => {
 
   it('drops malformed bans from a collector and keeps its valid ones', async () => {
     const messy = collector('messy', async () => [makeBan({ id: 'ok' }), { id: 'bad' } as unknown as FireBan]);
-    const store = await createBanStore([messy], { ...noRetries, dbPath: testDbPath() });
+    const store = createBanStore([messy], noRetries);
 
     await store.refresh(messy);
 
@@ -122,13 +104,13 @@ describe('createBanStore', () => {
   it('flags a source as retrying between attempts and fetching while it runs', async () => {
     let calls = 0;
     const seen: { fetching: boolean; retrying: boolean }[] = [];
-    let store: Awaited<ReturnType<typeof createBanStore>>;
+    let store: ReturnType<typeof createBanStore>;
     const slow = collector('slow', async () => {
       seen.push(store.snapshot().sources[0]);
       if (++calls === 1) throw new Error('once');
       return [makeBan({ id: 's1' })];
     });
-    store = await createBanStore([slow], { retries: 1, retryDelayMs: () => 0, dbPath: testDbPath() });
+    store = createBanStore([slow], { retries: 1, retryDelayMs: () => 0 });
 
     await store.refresh(slow);
 
@@ -137,84 +119,45 @@ describe('createBanStore', () => {
   });
 });
 
-describe('createBanStore cache file', () => {
-  it('starts empty instead of crashing when the file has only the old `bans` shape', async () => {
-    const path = dbWith(JSON.stringify({ bans: { a1: { id: 'a1' } } }));
-    const store = await createBanStore([collector('a', async () => [])], { ...noRetries, dbPath: path });
-
-    expect(store.snapshot().sources[0]).toMatchObject({ status: 'pending', hasData: false });
-
-    await store.refresh(collector('a', async () => [makeBan({ id: 'a1' })]));
-    expect(store.snapshot().bans.map(ban => ban.id)).toEqual(['a1']);
-  });
-
-  it.each([['an empty file', ''], ['a corrupt file', '{ "sources": {'], ['null', 'null'], ['an empty object', '{}']])(
-    'starts empty and recovers from %s',
-    async (_name, text) => {
-      const c = collector('a', async () => [makeBan({ id: 'a1' })]);
-      const store = await createBanStore([c], { ...noRetries, dbPath: dbWith(text) });
-
-      expect(store.snapshot().bans).toEqual([]);
-      await store.refresh(c);
-      expect(store.snapshot().bans.map(ban => ban.id)).toEqual(['a1']);
-    },
-  );
-
-  it('drops stored bans that fail validation', async () => {
-    const path = dbWith(JSON.stringify({ sources: { a: { bans: [{ id: 'bad' }], status: 'success', updatedAt: 5, attemptedAt: 5 } } }));
-    const store = await createBanStore([collector('a', async () => [])], { ...noRetries, dbPath: path });
-
-    expect(store.snapshot().bans).toEqual([]);
-  });
-
-  it('serves bans from disk after a restart without fetching again', async () => {
-    const path = testDbPath();
-    let calls = 0;
-    const make = () => collector('a', async () => (calls++, [makeBan({ id: 'a1' })]), 60 * 60 * 1000);
-
-    const first = await createBanStore([make()], { ...noRetries, dbPath: path });
-    await first.refresh(make());
-    expect(calls).toBe(1);
-
-    const second = await createBanStore([make()], { ...noRetries, dbPath: path });
-    const stop = second.start();
-    await Bun.sleep(20);
-    stop();
-
-    expect(calls).toBe(1);
-    expect(second.snapshot()).toMatchObject({ bans: [{ id: 'a1' }], sources: [{ status: 'success', hasData: true }] });
-  });
-
-  it('fetches again on start when the stored data is older than the refetch interval', async () => {
-    const path = dbWith(JSON.stringify({ sources: { a: { bans: [], status: 'success', updatedAt: 1, attemptedAt: 1 } } }));
-    let calls = 0;
-    const store = await createBanStore([collector('a', async () => (calls++, []), 1000)], { ...noRetries, dbPath: path });
+describe('createBanStore schedule', () => {
+  it('fetches every collector once on start', async () => {
+    const calls: string[] = [];
+    const make = (id: string) => collector(id, async () => (calls.push(id), [makeBan({ id: `${id}1` })]), 60 * 60 * 1000);
+    const store = createBanStore([make('a'), make('b')], noRetries);
 
     const stop = store.start();
     await Bun.sleep(50);
     stop();
 
-    expect(calls).toBe(1);
+    expect(calls.sort()).toEqual(['a', 'b']);
+    expect(store.snapshot().bans.map(ban => ban.id)).toEqual(['a1', 'b1']);
   });
 
-  it('refetches everything on start with forceFetch', async () => {
-    const path = testDbPath();
+  it('fetches again after the refetch interval', async () => {
     let calls = 0;
-    const make = () => collector('a', async () => (calls++, []), 60 * 60 * 1000);
-    await (await createBanStore([make()], { ...noRetries, dbPath: path })).refresh(make());
+    const store = createBanStore([collector('a', async () => (calls++, []), 30)], noRetries);
 
-    const store = await createBanStore([make()], { ...noRetries, dbPath: path, forceFetch: true });
     const stop = store.start();
-    await Bun.sleep(50);
+    await Bun.sleep(150);
     stop();
 
-    expect(calls).toBe(2);
+    expect(calls).toBeGreaterThanOrEqual(2);
+  });
+
+  it('stops fetching after the returned stop function is called', async () => {
+    let calls = 0;
+    const store = createBanStore([collector('a', async () => (calls++, []), 20)], noRetries);
+
+    store.start()();
+    await Bun.sleep(100);
+
+    expect(calls).toBeLessThanOrEqual(1);
   });
 
   it('does not refetch in a loop when the refetch interval exceeds the timer limit', async () => {
     let calls = 0;
     const thirtyDays = 30 * 24 * 60 * 60 * 1000;
-    const store = await createBanStore([collector('a', async () => (calls++, []), thirtyDays)], { ...noRetries, dbPath: testDbPath() });
+    const store = createBanStore([collector('a', async () => (calls++, []), thirtyDays)], noRetries);
 
     const stop = store.start();
     await Bun.sleep(100);

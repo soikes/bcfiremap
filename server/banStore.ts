@@ -1,33 +1,21 @@
-import { Low } from 'lowdb';
-import { JSONFile } from 'lowdb/node';
-import { mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
 import { BansResponse, LoadStatus } from '../types/api';
 import { FireBan } from '../types/ban';
 import { Collector } from '../types/collector';
 import { validBans } from '../utils/bans';
 import { logger } from '../utils/logger';
 
-/** What is kept on disk for one source. */
+/** What is kept in memory for one source. */
 interface StoredSource {
   bans: FireBan[];
   status: LoadStatus;
   updatedAt: number;
-  attemptedAt: number;
-}
-
-interface DbData {
-  sources: Record<string, StoredSource>;
 }
 
 interface Options {
   retries?: number;
   retryDelayMs?: (attempt: number) => number;
-  dbPath?: string;
-  forceFetch?: boolean;
 }
 
-const DEFAULT_DB_PATH = 'data/bans.json';
 const FAILED_RETRY_MS = 10 * 60 * 1000;
 const MAX_TIMEOUT_MS = 2 ** 31 - 1;
 
@@ -53,48 +41,15 @@ async function withRetry<T>(
   }
 }
 
-/** Opens the JSON file, starting empty when it is missing, empty, corrupt or in an older shape. */
-async function loadDb(path: string): Promise<Low<DbData>> {
-  mkdirSync(dirname(path), { recursive: true });
-  const db = new Low<DbData>(new JSONFile<DbData>(path), { sources: {} });
-  try {
-    await db.read();
-  } catch (error) {
-    logger.error('[banStore] ignoring unreadable cache file', path, error);
-  }
-  if (typeof db.data?.sources !== 'object' || db.data.sources === null) db.data = { sources: {} };
-  return db;
-}
-
-/** Milliseconds until a source is due again, 0 if it is due now. */
-function msUntilDue(stored: StoredSource | undefined, intervalMs: number, now: number): number {
-  if (!stored || stored.attemptedAt <= 0) return 0;
-  const every = stored.status === 'success' ? intervalMs : Math.min(intervalMs, FAILED_RETRY_MS);
-  return Math.max(0, stored.attemptedAt + every - now);
-}
-
-/** Holds each source's bans on disk and refreshes them on their own schedules, keeping the last good bans when a refresh fails. */
-export async function createBanStore(
+/** Holds each source's bans in memory, fetching them on start and again on their own schedules, keeping the last good bans when a refresh fails. */
+export function createBanStore(
   collectors: Collector[],
-  { retries = 3, retryDelayMs = backoff, dbPath, forceFetch = process.env.FORCE_FETCH === 'true' }: Options = {},
+  { retries = 3, retryDelayMs = backoff }: Options = {},
 ) {
-  const db = await loadDb(dbPath ?? process.env.BANS_DB_PATH ?? DEFAULT_DB_PATH);
-  const sources = db.data.sources;
+  const sources: Record<string, StoredSource> = {};
   const live = new Map<string, { fetching: boolean; retrying: boolean }>();
   const timers = new Set<ReturnType<typeof setTimeout>>();
   let stopped = false;
-
-  /** Drops stored bans that fail validation, so an old or edited file can't put bad bans on the map. */
-  for (const collector of collectors) {
-    const stored = sources[collector.id];
-    if (!stored) continue;
-    try {
-      stored.bans = validBans(stored.bans, collector.id);
-    } catch {
-      delete sources[collector.id];
-    }
-  }
-  logger.log('[banStore] loaded from disk', Object.fromEntries(Object.entries(sources).map(([id, s]) => [id, s.bans.length])));
 
   /** Runs one collector with retries and stores its bans, or marks it failed while keeping its previous bans. */
   async function refresh(collector: Collector): Promise<void> {
@@ -105,41 +60,32 @@ export async function createBanStore(
     const previous = sources[collector.id];
     try {
       const bans = validBans(await withRetry(() => collector.collect(), retries, retryDelayMs, () => setLive({ retrying: true })), collector.id);
-      sources[collector.id] = { bans, status: 'success', updatedAt: now, attemptedAt: now };
+      sources[collector.id] = { bans, status: 'success', updatedAt: now };
       logger.log(`[banStore] ${collector.id} refreshed`, bans.length, 'bans');
     } catch (error) {
-      sources[collector.id] = { bans: previous?.bans ?? [], status: 'error', updatedAt: previous?.updatedAt ?? 0, attemptedAt: now };
+      sources[collector.id] = { bans: previous?.bans ?? [], status: 'error', updatedAt: previous?.updatedAt ?? 0 };
       logger.error(`[banStore] ${collector.id} refresh failed`, error);
     }
     setLive({ fetching: false, retrying: false });
-    try {
-      await db.write();
-    } catch (error) {
-      logger.error('[banStore] could not write the cache file', error);
-    }
   }
 
-  /** Waits until the collector is due (re-arming in chunks, since timers cap at about 24 days), refreshes it, and repeats. */
-  function schedule(collector: Collector) {
-    const arm = () => {
-      if (stopped) return;
-      const wait = msUntilDue(sources[collector.id], collector.refetchIntervalMs, Date.now());
-      const timer = setTimeout(async () => {
-        timers.delete(timer);
-        if (msUntilDue(sources[collector.id], collector.refetchIntervalMs, Date.now()) > 0) return arm();
-        await refresh(collector);
-        arm();
-      }, Math.min(wait, MAX_TIMEOUT_MS));
-      timers.add(timer);
-      logger.log(`[banStore] ${collector.id} next refresh in`, Math.round(wait / 1000), 's');
-    };
-    arm();
+  /** Refreshes the collector now, then again after its refetch interval (within 10 minutes while it keeps failing), until stopped. */
+  async function run(collector: Collector): Promise<void> {
+    if (stopped) return;
+    await refresh(collector);
+    if (stopped) return;
+    const every = sources[collector.id]?.status === 'success' ? collector.refetchIntervalMs : Math.min(collector.refetchIntervalMs, FAILED_RETRY_MS);
+    const timer = setTimeout(() => {
+      timers.delete(timer);
+      void run(collector);
+    }, Math.min(every, MAX_TIMEOUT_MS));
+    timers.add(timer);
+    logger.log(`[banStore] ${collector.id} next refresh in`, Math.round(every / 1000), 's');
   }
 
-  /** Starts every collector's schedule, fetching only the sources that are due (all of them with FORCE_FETCH); returns a function that stops it. */
+  /** Starts every collector's fetch-then-repeat schedule; returns a function that stops it. */
   function start(): () => void {
-    if (forceFetch) collectors.forEach(c => delete sources[c.id]);
-    collectors.forEach(schedule);
+    collectors.forEach(c => void run(c));
     return () => {
       stopped = true;
       timers.forEach(clearTimeout);

@@ -6,7 +6,7 @@ import { apiRoutes } from './api';
 const HOSTNAME = '127.0.0.1';
 const MAX_REQUEST_BODY_BYTES = 1024;
 
-const routes = await apiRoutes(SERVER_COLLECTORS);
+const routes = apiRoutes(SERVER_COLLECTORS);
 
 const server = Bun.serve({
   hostname: HOSTNAME,
