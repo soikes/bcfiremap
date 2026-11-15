@@ -5,12 +5,15 @@ interface Props {
   sources: SourceStatus[];
 }
 
-type RowState = 'loading' | 'retrying' | 'failed';
+type RowState = 'failed' | 'retrying' | 'loading';
 
-const ROW_TEXT: Record<RowState, (name: string) => string> = {
-  loading: name => `Loading ban data from ${name}…`,
-  retrying: name => `Couldn't load ban data from ${name}. Retrying…`,
-  failed: name => `⚠ Couldn't load ${name}. Bans may be missing from the map.`,
+/** Most urgent first: the banner reports the first of these that any source is in. */
+const ROW_ORDER: RowState[] = ['failed', 'retrying', 'loading'];
+
+const ROW_TEXT: Record<RowState, (who: string) => string> = {
+  loading: who => `Loading ban data from ${who}…`,
+  retrying: who => `Couldn't load ban data from ${who}. Retrying…`,
+  failed: who => `⚠ Couldn't load ${who}. Bans may be missing from the map.`,
 };
 
 /** What the banner says about a source, or null when it has loaded and there is nothing to say. */
@@ -21,21 +24,22 @@ function rowState(source: SourceStatus): RowState | null {
   return null;
 }
 
-/** Stack of rows over the map, one per source that is loading, being retried, or failed with no data; each row leaves once its source has loaded. */
+/** Names a group of sources: one or two by name, more by count. */
+const who = (sources: SourceStatus[]) =>
+  sources.length <= 2 ? sources.map(source => source.name).join(' and ') : `${sources.length} sources`;
+
+/** One row over the map for every source that is loading, being retried, or failed with no data, reporting the most urgent of those states and naming (or counting) the sources in it; gone once every source has loaded. */
 export function SourceBanner({ sources }: Props) {
-  const rows = sources.flatMap(source => {
-    const state = rowState(source);
-    return state ? [{ source, state }] : [];
-  });
-  if (rows.length === 0) return null;
+  const states = sources.map(source => ({ source, state: rowState(source) }));
+  const state = ROW_ORDER.find(each => states.some(entry => entry.state === each));
+  if (!state) return null;
+  const group = states.filter(entry => entry.state === state).map(entry => entry.source);
   return (
     <ul className="source-banner" role="status">
-      {rows.map(({ source, state }) => (
-        <li key={source.id} className={`source-banner-row source-banner-${state}`}>
-          {state === 'failed' ? null : <span className="source-banner-spinner" aria-hidden="true" />}
-          <span className="source-banner-text">{ROW_TEXT[state](source.name)}</span>
-        </li>
-      ))}
+      <li className={`source-banner-row source-banner-${state}`}>
+        {state === 'failed' ? null : <span className="source-banner-spinner" aria-hidden="true" />}
+        <span className="source-banner-text">{ROW_TEXT[state](who(group))}</span>
+      </li>
     </ul>
   );
 }

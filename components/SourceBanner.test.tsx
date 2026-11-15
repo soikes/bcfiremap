@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'bun:test';
 import { makeSource } from '../test/fixtures';
 import { SourceStatus } from '../types/api';
@@ -74,38 +74,60 @@ describe('SourceBanner rows', () => {
 });
 
 describe('SourceBanner with several sources', () => {
-  it('gives each source its own row, in source order, and leaves out the loaded ones', () => {
+  it('shows one row, for the most urgent state: failed, then retrying, then loading', () => {
     renderBanner([loading('A'), failed('B'), loaded('C'), retrying('D'), loading('E')]);
-    expect(rows()).toEqual([
-      'Loading ban data from A…',
-      "⚠ Couldn't load B. Bans may be missing from the map.",
-      "Couldn't load ban data from D. Retrying…",
-      'Loading ban data from E…',
-    ]);
+    expect(rows()).toEqual(["⚠ Couldn't load B. Bans may be missing from the map."]);
+
+    cleanup();
+    renderBanner([loading('A'), loaded('C'), retrying('D'), loading('E')]);
+    expect(rows()).toEqual(["Couldn't load ban data from D. Retrying…"]);
+
+    cleanup();
+    renderBanner([loading('A'), loaded('C'), loading('E')]);
+    expect(rows()).toEqual(['Loading ban data from A and E…']);
   });
 
-  it('removes a row once its source has loaded and keeps the others', () => {
-    const { rerender } = renderBanner([loading('A'), loading('B')]);
-    expect(rows()).toEqual(['Loading ban data from A…', 'Loading ban data from B…']);
+  it('names up to two sources and counts more', () => {
+    renderBanner([loading('A'), loading('B'), loading('C'), loading('D')]);
+    expect(rows()).toEqual(['Loading ban data from 4 sources…']);
 
-    rerender(<SourceBanner sources={[loaded('A'), loading('B')]} />);
+    cleanup();
+    renderBanner([failed('A'), failed('B'), loaded('C')]);
+    expect(rows()).toEqual(["⚠ Couldn't load A and B. Bans may be missing from the map."]);
 
-    expect(rows()).toEqual(['Loading ban data from B…']);
+    cleanup();
+    renderBanner([retrying('A'), retrying('B'), retrying('C')]);
+    expect(rows()).toEqual(["Couldn't load ban data from 3 sources. Retrying…"]);
   });
 
-  it('updates a row in place as its source goes from loading to retrying to failed', () => {
+  it('only counts the sources in the reported state', () => {
+    renderBanner([failed('A'), loading('B'), loading('C'), loading('D')]);
+    expect(rows()).toEqual(["⚠ Couldn't load A. Bans may be missing from the map."]);
+  });
+
+  it('shrinks and then goes away as sources load', () => {
+    const { rerender } = renderBanner([loading('A'), loading('B'), loading('C')]);
+    expect(rows()).toEqual(['Loading ban data from 3 sources…']);
+
+    rerender(<SourceBanner sources={[loaded('A'), loading('B'), loading('C')]} />);
+    expect(rows()).toEqual(['Loading ban data from B and C…']);
+
+    rerender(<SourceBanner sources={[loaded('A'), loaded('B'), loaded('C')]} />);
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('updates in place as the sources go from loading to retrying to failed', () => {
     const { rerender } = renderBanner([loading('A'), loading('B')]);
 
     rerender(<SourceBanner sources={[retrying('A'), loading('B')]} />);
-    expect(rows()).toEqual(["Couldn't load ban data from A. Retrying…", 'Loading ban data from B…']);
+    expect(rows()).toEqual(["Couldn't load ban data from A. Retrying…"]);
 
     rerender(<SourceBanner sources={[failed('A'), loaded('B')]} />);
     expect(rows()).toEqual(["⚠ Couldn't load A. Bans may be missing from the map."]);
   });
 
-  it('keeps each row as its own list item', () => {
-    renderBanner([loading('A'), loading('B'), loading('C')]);
-    expect(screen.getByRole('status').tagName).toBe('UL');
-    expect(screen.getAllByRole('listitem', { hidden: true })).toHaveLength(3);
+  it('never shows more than one row, however many sources are loading', () => {
+    renderBanner(Array.from({ length: 15 }, (_, i) => loading(`Source ${i}`)));
+    expect(screen.getAllByRole('listitem', { hidden: true })).toHaveLength(1);
   });
 });
