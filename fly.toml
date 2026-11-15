@@ -4,7 +4,7 @@
 #
 
 app = 'bcfiremap'
-primary_region = 'sea'
+primary_region = 'sjc'
 
 [build]
   [build.args]
