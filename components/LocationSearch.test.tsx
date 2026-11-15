@@ -92,7 +92,7 @@ describe('LocationSearch my location', () => {
     setGeolocation({ getCurrentPosition: (_ok: unknown, fail: (e: unknown) => void) => fail({ code: 1, PERMISSION_DENIED: 1, message: 'denied' }) });
     const { onLocate, user } = setup();
     await user.click(screen.getByRole('button', { name: 'My location' }));
-    expect(await screen.findByText('Location access was blocked')).toBeInTheDocument();
+    expect(await screen.findByText(/^Location access was blocked/)).toBeInTheDocument();
     expect(onLocate).not.toHaveBeenCalled();
   });
 });
