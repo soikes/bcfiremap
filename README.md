@@ -36,3 +36,7 @@ mise run check      # typecheck and test
 ```
 
 Project notes for contributors, including the architecture and how to add a data source, are in [CLAUDE.md](CLAUDE.md) and [docs/data-model.md](docs/data-model.md).
+
+## License
+
+The code is [MIT licensed](LICENSE). The data it shows comes from the sources above and stays under their own terms.

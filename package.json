@@ -2,6 +2,7 @@
   "name": "bcfiremap",
   "version": "1.0.0",
   "private": true,
+  "license": "MIT",
   "scripts": {
     "dev": "bun --env-file=.env.template --env-file=.env --hot server/dev.ts",
     "build": "bun run build:web && bun run build:server",
