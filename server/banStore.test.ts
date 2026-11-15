@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it, jest, spyOn } from 'bun:test';
 import { makeBan } from '../test/fixtures';
 import { FireBan } from '../types/ban';
 import { Collector } from '../types/collector';
@@ -120,49 +120,107 @@ describe('createBanStore', () => {
 });
 
 describe('createBanStore schedule', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  /** Lets the promises a refresh is waiting on settle, without moving the clock. */
+  const settle = async () => {
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+  };
+
+  /** Moves the fake clock forward, then lets the refresh that fires settle. */
+  const advance = async (ms: number) => {
+    jest.advanceTimersByTime(ms);
+    await settle();
+  };
+
   it('fetches every collector once on start', async () => {
     const calls: string[] = [];
     const make = (id: string) => collector(id, async () => (calls.push(id), [makeBan({ id: `${id}1` })]), 60 * 60 * 1000);
     const store = createBanStore([make('a'), make('b')], noRetries);
 
     const stop = store.start();
-    await Bun.sleep(50);
+    await settle();
     stop();
 
     expect(calls.sort()).toEqual(['a', 'b']);
     expect(store.snapshot().bans.map(ban => ban.id)).toEqual(['a1', 'b1']);
   });
 
-  it('fetches again after the refetch interval', async () => {
+  it('fetches again after the refetch interval, and not before', async () => {
     let calls = 0;
     const store = createBanStore([collector('a', async () => (calls++, []), 30)], noRetries);
 
     const stop = store.start();
-    await Bun.sleep(150);
-    stop();
+    await settle();
+    expect(calls).toBe(1);
 
-    expect(calls).toBeGreaterThanOrEqual(2);
+    await advance(29);
+    expect(calls).toBe(1);
+    await advance(1);
+    expect(calls).toBe(2);
+    await advance(30);
+    expect(calls).toBe(3);
+    stop();
   });
 
   it('stops fetching after the returned stop function is called', async () => {
     let calls = 0;
     const store = createBanStore([collector('a', async () => (calls++, []), 20)], noRetries);
 
-    store.start()();
-    await Bun.sleep(100);
+    const stop = store.start();
+    await settle();
+    stop();
+    await advance(1000);
 
-    expect(calls).toBeLessThanOrEqual(1);
+    expect(calls).toBe(1);
+  });
+
+  it('retries a source that keeps failing within ten minutes, however long its refetch interval is', async () => {
+    let calls = 0;
+    const failing = collector('a', async () => {
+      calls++;
+      throw new Error('down');
+    }, 7 * 24 * 60 * 60 * 1000);
+    const store = createBanStore([failing], noRetries);
+
+    const stop = store.start();
+    await settle();
+    expect(calls).toBe(1);
+
+    await advance(10 * 60 * 1000 - 1);
+    expect(calls).toBe(1);
+    await advance(1);
+    expect(calls).toBe(2);
+    stop();
+  });
+
+  it('waits out the refetch interval after a success', async () => {
+    let calls = 0;
+    const weekly = 7 * 24 * 60 * 60 * 1000;
+    const store = createBanStore([collector('a', async () => (calls++, []), weekly)], noRetries);
+
+    const stop = store.start();
+    await settle();
+    await advance(weekly - 1);
+    expect(calls).toBe(1);
+    await advance(1);
+    expect(calls).toBe(2);
+    stop();
   });
 
   it('does not refetch in a loop when the refetch interval exceeds the timer limit', async () => {
-    let calls = 0;
     const thirtyDays = 30 * 24 * 60 * 60 * 1000;
-    const store = createBanStore([collector('a', async () => (calls++, []), thirtyDays)], noRetries);
+    const timers = spyOn(globalThis, 'setTimeout');
+    const store = createBanStore([collector('a', async () => [], thirtyDays)], noRetries);
 
     const stop = store.start();
-    await Bun.sleep(100);
+    await settle();
     stop();
 
-    expect(calls).toBe(1);
+    const delays = timers.mock.calls.map(([, ms]) => Number(ms));
+    expect(delays.length).toBeGreaterThan(0);
+    expect(delays.every(ms => ms <= 2 ** 31 - 1)).toBe(true);
+    timers.mockRestore();
   });
 });

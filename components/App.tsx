@@ -19,7 +19,6 @@ import { Toast } from './Toast';
 
 interface Props {
   client?: QueryClient;
-  loadTimeoutMs?: number;
 }
 
 const queryClient = new QueryClient({
@@ -33,9 +32,9 @@ const queryClient = new QueryClient({
 });
 
 /** Map screen: owns the selected location and composes the map layers, the source banner and the results panel. */
-function MapScreen({ loadTimeoutMs }: { loadTimeoutMs?: number }) {
+function MapScreen() {
   const { bans, sources } = useBans();
-  const { loading, message } = useLoadStatus(sources, { timeoutMs: loadTimeoutMs });
+  const { loading, message } = useLoadStatus(sources);
   const [selected, setSelected] = useState<LatLng | null>(null);
   const [focus, setFocus] = useState<LatLng | null>(null);
   const bansHere = useFireBans(bans, selected);
@@ -75,10 +74,10 @@ function MapScreen({ loadTimeoutMs }: { loadTimeoutMs?: number }) {
 }
 
 /** Root component: provides the data-fetching client to the map screen. */
-export default function App({ client = queryClient, loadTimeoutMs }: Props) {
+export default function App({ client = queryClient }: Props) {
   return (
     <QueryClientProvider client={client}>
-      <MapScreen loadTimeoutMs={loadTimeoutMs} />
+      <MapScreen />
     </QueryClientProvider>
   );
 }

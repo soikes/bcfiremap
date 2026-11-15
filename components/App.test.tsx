@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, mock } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it, jest, mock } from 'bun:test';
 import { PROVINCIAL_URL, provincialCollector } from '../collectors/provincial';
 import { BANS_API_PATH } from '../constants/api';
 import { LOAD_FAILED_MESSAGE } from '../hooks/useLoadStatus';
@@ -38,10 +38,10 @@ const route = (replies: Record<string, Reply>) => {
 /** Renders the whole app with a query client that doesn't retry unless told to. */
 const clients: QueryClient[] = [];
 
-const renderApp = (retry: { retry: number; retryDelay: number } | { retry: false } = { retry: false }, loadTimeoutMs?: number) => {
+const renderApp = (retry: { retry: number; retryDelay: number } | { retry: false } = { retry: false }) => {
   const client = new QueryClient({ defaultOptions: { queries: retry } });
   clients.push(client);
-  render(<App client={client} loadTimeoutMs={loadTimeoutMs} />);
+  render(<App client={client} />);
 };
 
 /** A reply that fails the first `failures` times and then answers with `body`. */
@@ -166,19 +166,6 @@ describe('App while sources are loading', () => {
   });
 });
 
-describe('App when loading takes too long', () => {
-  it('stops spinning at the timeout and says some ban data did not load', async () => {
-    route({ [PROVINCIAL_URL]: hangs, [BANS_API_PATH]: hangs });
-    renderApp({ retry: false }, 1);
-    expect(spinning()).toBe(true);
-    expect(toast()).toBeNull();
-
-    await waitFor(() => expect(toast()).toBe(LOAD_FAILED_MESSAGE));
-    expect(spinning()).toBe(false);
-    expect(screen.getByTestId('map')).toBeInTheDocument();
-  });
-});
-
 describe('App when a source fails', () => {
   it('shows the toast, keeps the map, and warns in the panel when the BC Wildfire Service fails', async () => {
     route({ [PROVINCIAL_URL]: unreachable, [BANS_API_PATH]: SERVER_EMPTY });
@@ -247,25 +234,6 @@ describe('App when a source fails', () => {
 });
 
 describe('App while a source is retried', () => {
-  it('keeps spinning through the retries and shows the toast when they run out', async () => {
-    route({ [PROVINCIAL_URL]: unreachable, [BANS_API_PATH]: SERVER_EMPTY });
-    renderApp({ retry: 1, retryDelay: 20 });
-    expect(spinning()).toBe(true);
-
-    await waitFor(() => expect(toast()).toBe(LOAD_FAILED_MESSAGE));
-    expect(spinning()).toBe(false);
-  });
-
-  it('shows no toast and the bans when the retry succeeds', async () => {
-    route({ [PROVINCIAL_URL]: failsThenAnswers(1, BCWS_2022_FEED), [BANS_API_PATH]: SERVER_EMPTY });
-    renderApp({ retry: 1, retryDelay: 20 });
-
-    await waitFor(() => expect(spinning()).toBe(false));
-    expect(toast()).toBeNull();
-    clickMap(...INSIDE);
-    expect(screen.getByText('6 fire restrictions in effect')).toBeInTheDocument();
-  });
-
   it('says the source is being retried in the panel while the retry is pending', async () => {
     route({ [PROVINCIAL_URL]: unreachable, [BANS_API_PATH]: SERVER_EMPTY });
     renderApp({ retry: 1, retryDelay: 60_000 });
@@ -284,6 +252,86 @@ describe('App while a source is retried', () => {
     expect(await screen.findByText("BC Fire Bans server: couldn't load, retrying…")).toBeInTheDocument();
 
     expect(spinning()).toBe(true);
+    expect(toast()).toBeNull();
+  });
+});
+
+describe('App with a clock the test moves', () => {
+  beforeEach(async () => {
+    await new Promise(resolve => setTimeout(resolve, 0));
+    jest.useFakeTimers();
+  });
+  afterEach(() => jest.useRealTimers());
+
+  /** Lets pending promises settle, then fires the timers that are due right now (React Query delivers its notifications on a zero-length timer). */
+  const flush = async () => {
+    for (let round = 0; round < 3; round++) {
+      await act(async () => {
+        for (let tick = 0; tick < 10; tick++) await Promise.resolve();
+        jest.advanceTimersByTime(0);
+      });
+    }
+  };
+
+  /** Moves the fake clock forward by `ms` and lets everything that triggers settle. */
+  const advance = async (ms: number) => {
+    await flush();
+    await act(async () => {
+      jest.advanceTimersByTime(ms);
+    });
+    await flush();
+  };
+
+  it('stops spinning at the 30 second timeout and says some ban data did not load', async () => {
+    route({ [PROVINCIAL_URL]: hangs, [BANS_API_PATH]: hangs });
+    renderApp({ retry: false });
+    await flush();
+    expect(spinning()).toBe(true);
+
+    await advance(25_000);
+    expect(spinning()).toBe(true);
+    expect(toast()).toBeNull();
+
+    await advance(10_000);
+    expect(spinning()).toBe(false);
+    expect(toast()).toBe(LOAD_FAILED_MESSAGE);
+    expect(screen.getByTestId('map')).toBeInTheDocument();
+  });
+
+  it('keeps spinning through the retries and shows the toast when they run out', async () => {
+    route({ [PROVINCIAL_URL]: unreachable, [BANS_API_PATH]: SERVER_EMPTY });
+    renderApp({ retry: 1, retryDelay: 5000 });
+    await flush();
+    expect(spinning()).toBe(true);
+    expect(toast()).toBeNull();
+
+    await advance(10_000);
+    expect(toast()).toBe(LOAD_FAILED_MESSAGE);
+    expect(spinning()).toBe(false);
+  });
+
+  it('shows no toast and the bans when the retry succeeds', async () => {
+    route({ [PROVINCIAL_URL]: failsThenAnswers(1, BCWS_2022_FEED), [BANS_API_PATH]: SERVER_EMPTY });
+    renderApp({ retry: 1, retryDelay: 5000 });
+    await flush();
+    expect(spinning()).toBe(true);
+
+    await advance(10_000);
+    expect(spinning()).toBe(false);
+    expect(toast()).toBeNull();
+    clickMap(...INSIDE);
+    expect(screen.getByText('6 fire restrictions in effect')).toBeInTheDocument();
+  });
+
+  it('hides the failed-load toast after six seconds', async () => {
+    route({ [PROVINCIAL_URL]: unreachable, [BANS_API_PATH]: SERVER_EMPTY });
+    renderApp({ retry: false });
+    await flush();
+    expect(toast()).toBe(LOAD_FAILED_MESSAGE);
+
+    await advance(5000);
+    expect(toast()).toBe(LOAD_FAILED_MESSAGE);
+    await advance(2000);
     expect(toast()).toBeNull();
   });
 });

@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { renderHook, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test';
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, jest, mock } from 'bun:test';
 import { ReactNode } from 'react';
 import { BANS_API_PATH } from '../constants/api';
 import { makeBan, makeSource } from '../test/fixtures';
@@ -283,6 +283,33 @@ describe('useBans when the server fails', () => {
 });
 
 describe('useBans while retrying', () => {
+  beforeEach(async () => {
+    await new Promise(resolve => setTimeout(resolve, 0));
+    jest.useFakeTimers();
+  });
+  afterEach(() => jest.useRealTimers());
+
+  /** Lets pending promises settle, then fires the timers that are due right now (React Query delivers its notifications on a zero-length timer). */
+  const flush = async () => {
+    for (let i = 0; i < 3; i++) {
+      await act(async () => {
+        for (let tick = 0; tick < 10; tick++) await Promise.resolve();
+        jest.advanceTimersByTime(0);
+      });
+    }
+  };
+
+  /** Moves the fake clock forward by `ms` and lets everything that triggers settle. */
+  const advance = async (ms: number) => {
+    await flush();
+    if (ms > 0) {
+      await act(async () => {
+        jest.advanceTimersByTime(ms);
+      });
+      await flush();
+    }
+  };
+
   it('flags a browser source as retrying after a failed attempt, and clears it when the retry succeeds', async () => {
     let calls = 0;
     const flaky = collector('flaky', async () => {
@@ -292,16 +319,23 @@ describe('useBans while retrying', () => {
     });
     const { result } = renderBans([flaky], { retry: 1, retryDelay: 100 });
 
-    await waitFor(() => expect(result.current.sources[0]).toMatchObject({ status: 'pending', retrying: true }));
+    await advance(0);
+    expect(result.current.sources[0]).toMatchObject({ status: 'pending', retrying: true });
 
-    await waitFor(() => expect(result.current.sources[0]).toMatchObject({ status: 'success', retrying: false }));
+    await advance(50);
+    expect(result.current.sources[0]).toMatchObject({ retrying: true });
+    await advance(100);
+    expect(result.current.sources[0]).toMatchObject({ status: 'success', retrying: false });
     expect(result.current.bans.map(ban => ban.id)).toEqual(['f1']);
   });
 
   it('stops flagging a browser source as retrying once every retry has failed', async () => {
     const { result } = renderBans([failing('bad')], { retry: 1, retryDelay: 10 });
 
-    await waitFor(() => expect(result.current.sources[0]).toMatchObject({ status: 'error', retrying: false }));
+    await advance(0);
+    expect(result.current.sources[0]).toMatchObject({ retrying: true });
+    await advance(10);
+    expect(result.current.sources[0]).toMatchObject({ status: 'error', retrying: false });
   });
 
   it('flags the server placeholder as retrying while the first server request is retried', async () => {
@@ -310,9 +344,9 @@ describe('useBans while retrying', () => {
     });
     const { result } = renderBans([], { retry: 1, retryDelay: 1000 });
 
-    await waitFor(() =>
-      expect(result.current.sources).toEqual([expect.objectContaining({ id: 'server', status: 'pending', retrying: true })]),
-    );
+    await advance(0);
+
+    expect(result.current.sources).toEqual([expect.objectContaining({ id: 'server', status: 'pending', retrying: true })]);
   });
 
   it('adds a retrying server entry next to the server sources when a later request is retried', async () => {
@@ -322,17 +356,17 @@ describe('useBans while retrying', () => {
       return { ok: true, json: async () => ({ bans: [makeBan({ id: 's1' })], sources: [makeSource({ id: 'muni' })] }) };
     });
     const { result, client } = renderBans([], { retry: 1, retryDelay: 1000 });
-    await waitFor(() => expect(result.current.bans.map(ban => ban.id)).toEqual(['s1']));
+    await advance(0);
+    expect(result.current.bans.map(ban => ban.id)).toEqual(['s1']);
 
     fail = true;
     void client.refetchQueries({ queryKey: ['server-bans'] });
+    await advance(0);
 
-    await waitFor(() =>
-      expect(result.current.sources).toEqual([
-        expect.objectContaining({ id: 'muni' }),
-        expect.objectContaining({ id: 'server', hasData: true, retrying: true }),
-      ]),
-    );
+    expect(result.current.sources).toEqual([
+      expect.objectContaining({ id: 'muni' }),
+      expect.objectContaining({ id: 'server', hasData: true, retrying: true }),
+    ]);
     expect(result.current.bans.map(ban => ban.id)).toEqual(['s1']);
   });
 });
