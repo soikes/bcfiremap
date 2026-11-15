@@ -7,10 +7,13 @@ import './LocationSearch.css';
 
 interface Props {
   onLocate: (location: LatLng) => void;
+  messageMs?: number;
 }
 
-/** Search box and "My location" button over the map; reports the chosen place as a LatLng, listing the matches when a search finds several. */
-export function LocationSearch({ onLocate }: Props) {
+const DEFAULT_MESSAGE_MS = 6000;
+
+/** Search box and "My location" button over the map; reports the chosen place as a LatLng, listing the matches when a search finds several, and shows a message for a few seconds when there is nothing to pick or the lookup failed. */
+export function LocationSearch({ onLocate, messageMs = DEFAULT_MESSAGE_MS }: Props) {
   const [query, setQuery] = useState('');
   const [places, setPlaces] = useState<Place[]>([]);
   const [message, setMessage] = useState<string | null>(null);
@@ -18,6 +21,12 @@ export function LocationSearch({ onLocate }: Props) {
   const controller = useRef<AbortController | null>(null);
 
   useEffect(() => () => controller.current?.abort(), []);
+
+  useEffect(() => {
+    if (!message) return;
+    const timer = setTimeout(() => setMessage(null), messageMs);
+    return () => clearTimeout(timer);
+  }, [message, messageMs]);
 
   /** Clears the results and message, then hands the location on. */
   function choose(location: LatLng) {

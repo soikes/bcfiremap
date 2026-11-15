@@ -20,9 +20,9 @@ afterEach(() => {
 });
 
 /** Renders the search and returns the callback it reports locations to. */
-const setup = () => {
+const setup = (messageMs?: number) => {
   const onLocate = mock();
-  render(<LocationSearch onLocate={onLocate} />);
+  render(<LocationSearch onLocate={onLocate} messageMs={messageMs} />);
   return { onLocate, user: userEvent.setup() };
 };
 
@@ -94,5 +94,34 @@ describe('LocationSearch my location', () => {
     await user.click(screen.getByRole('button', { name: 'My location' }));
     expect(await screen.findByText(/^Location access was blocked/)).toBeInTheDocument();
     expect(onLocate).not.toHaveBeenCalled();
+  });
+});
+
+describe('LocationSearch messages', () => {
+  it('hides a message after a while', async () => {
+    answer([]);
+    const { user } = setup(60);
+    await searchFor(user, 'Nowhere');
+    expect(await screen.findByText('No places found in British Columbia')).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText('No places found in British Columbia')).not.toBeInTheDocument());
+  });
+
+  it('keeps a message until the time is up', async () => {
+    answer([]);
+    const { user } = setup(60_000);
+    await searchFor(user, 'Nowhere');
+    expect(await screen.findByText('No places found in British Columbia')).toBeInTheDocument();
+    await new Promise(resolve => setTimeout(resolve, 100));
+    expect(screen.getByText('No places found in British Columbia')).toBeInTheDocument();
+  });
+
+  it('shows a repeated failure for the full time again', async () => {
+    answer([]);
+    const { user } = setup(150);
+    await searchFor(user, 'Nowhere');
+    await screen.findByText('No places found in British Columbia');
+    await waitFor(() => expect(screen.queryByText('No places found in British Columbia')).not.toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: 'Search' }));
+    expect(await screen.findByText('No places found in British Columbia')).toBeInTheDocument();
   });
 });
