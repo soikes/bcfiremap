@@ -18,7 +18,7 @@ function covers(ban: FireBan, location: LatLng): boolean {
     return pointInGeometry(location, ban.geometry);
   } catch (error) {
     logger.error(
-      `[useFireBans] skipping ban ${ban.id} with an unreadable geometry`,
+      `[useBansAt] skipping ban ${ban.id} with an unreadable geometry`,
       error,
     );
     return false;
@@ -26,7 +26,7 @@ function covers(ban: FireBan, location: LatLng): boolean {
 }
 
 /** Returns the bans whose area contains `location`, strictest permission first and each group broadest first; empty when `location` is null. */
-export function useFireBans(
+export function useBansAt(
   bans: FireBan[],
   location: LatLng | null,
 ): FireBan[] {
@@ -40,7 +40,7 @@ export function useFireBans(
           LEVEL_ORDER[a.level] - LEVEL_ORDER[b.level],
       );
     logger.log(
-      "[useFireBans] bans at",
+      "[useBansAt] bans at",
       location,
       hits.map((ban) => ban.id),
     );

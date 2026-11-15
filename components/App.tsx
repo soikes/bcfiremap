@@ -3,8 +3,8 @@ import { useState } from 'react';
 import { SHOW_FIRE_ZONES } from '../constants/map';
 import { BROWSER_COLLECTORS } from '../collectors/constants/browser';
 import { useBans } from '../hooks/useBans';
+import { useBansAt } from '../hooks/useBansAt';
 import { useLoadStatus } from '../hooks/useLoadStatus';
-import { useFireBans } from '../hooks/useFireBans';
 import { Collector } from '../types/collector';
 import { LatLng } from '../types/geo';
 import './App.css';
@@ -41,7 +41,7 @@ function MapScreen({ collectors }: { collectors: Collector[] }) {
   const { loading, message } = useLoadStatus(sources);
   const [selected, setSelected] = useState<LatLng | null>(null);
   const [focus, setFocus] = useState<LatLng | null>(null);
-  const bansHere = useFireBans(bans, selected);
+  const bansHere = useBansAt(bans, selected);
 
   /** Selects a searched or detected location and asks the map to move to it; the copy makes searching the same place twice move the map twice. */
   function locate(location: LatLng) {
