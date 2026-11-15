@@ -6,7 +6,7 @@ export const langfordCollector = standingBanCollector({
   municipalityName: "City of Langford",
   abmsName: "Langford",
   type: "open-burning",
-  title: "Open burning not permitted",
+  title: "Open burning",
   description:
     "The City of Langford allows open burning (Burning Bylaw No. 1532) only from November 1 to 30 and from March 15 to April 15, with a permit, on residential lots of about 0.5 acres or more, and not on long weekends. " +
     "It is not permitted at other times. " +

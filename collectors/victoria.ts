@@ -5,7 +5,7 @@ export const victoriaCollector = standingBanCollector({
   authority: VICTORIA_AUTHORITY,
   municipalityName: "City of Victoria",
   abmsName: "Victoria",
-  title: "Open fires not permitted",
+  title: "Open fires",
   description:
     "The City of Victoria does not permit open fires, including beach fires, at any time of year. " +
     "The only exception in parks, on beaches and on boulevards is a CSA-approved natural gas or propane device used solely for cooking; fire rings are not permitted. " +

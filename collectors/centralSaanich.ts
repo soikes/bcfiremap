@@ -6,7 +6,7 @@ export const centralSaanichCollector = standingBanCollector({
   municipalityName: "District of Central Saanich",
   abmsName: "Central Saanich",
   type: "open-burning",
-  title: "Open burning not permitted",
+  title: "Open burning",
   description:
     "The District of Central Saanich allows open burning only from October 16 to May 15 (Open Burning Regulation Bylaw 2058), and only with a permit except for recreational campfires. " +
     "It is not permitted from May 16 to October 15. " +

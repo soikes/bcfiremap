@@ -41,6 +41,10 @@
   color: #444;
 }
 
+.ban-card-permission {
+  font-weight: 700;
+}
+
 .ban-card-description {
   margin: 0 0 4px;
   font-size: 12px;

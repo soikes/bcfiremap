@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'bun:test';
-import { STATUS_COLORS } from '../constants/banStyle';
+import { PERMISSION_COLORS, STATUS_COLORS } from '../constants/banStyle';
 import { makeBan, makeInactiveBan } from '../test/fixtures';
 import { BanCard } from './BanCard';
 
@@ -20,14 +20,30 @@ describe('BanCard', () => {
 
     expect(screen.getByText('Regional District')).toBeInTheDocument();
     expect(screen.getByText('Thompson-Nicola Regional District')).toBeInTheDocument();
-    expect(screen.getByText('Campfire · Category 1')).toBeInTheDocument();
+    expect(screen.getByText('Campfire · Category 1:')).toBeInTheDocument();
     expect(screen.getByText('Campfires are prohibited.')).toBeInTheDocument();
     expect(screen.getByText('Effective 2026-06-15')).toBeInTheDocument();
   });
 
   it('falls back to the type label when the source gave no title', () => {
     render(<BanCard ban={makeBan({ title: undefined, type: 'open-burning' })} />);
-    expect(screen.getByText('Open Burning Prohibition')).toBeInTheDocument();
+    expect(screen.getByText('Open burning:')).toBeInTheDocument();
+  });
+
+  it('says Not permitted in red with a ✕ while the ban is in force', () => {
+    render(<BanCard ban={makeBan({ title: 'Beach fires' })} />);
+    expect(screen.getByText('Beach fires:')).toBeInTheDocument();
+    expect(screen.getByText(/Not permitted/)).toHaveStyle({ color: PERMISSION_COLORS.notPermitted });
+    expect(screen.getByText('✕')).toBeInTheDocument();
+    expect(screen.queryByText(/^\s*Permitted/)).not.toBeInTheDocument();
+  });
+
+  it('says Permitted in green with a ✓ while the ban is not in force', () => {
+    render(<BanCard ban={makeInactiveBan({ title: 'Backyard burning' })} />);
+    expect(screen.getByText('Backyard burning:')).toBeInTheDocument();
+    expect(screen.getByText(/Permitted/)).toHaveStyle({ color: PERMISSION_COLORS.permitted });
+    expect(screen.getByText('✓')).toBeInTheDocument();
+    expect(screen.queryByText(/Not permitted/)).not.toBeInTheDocument();
   });
 
   it('leaves out the description, date and link when the source gave none', () => {

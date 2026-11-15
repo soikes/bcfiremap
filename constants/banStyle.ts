@@ -14,13 +14,16 @@ export const LEVEL_LABEL: Record<BanLevel, string> = {
   municipal:           'Municipal',
 };
 
-/** Human-readable label for each ban type. */
+/** Colours of the "Not permitted" (a ban in force) and "Permitted" (a ban not in force) lines on a ban card. */
+export const PERMISSION_COLORS = { notPermitted: STATUS_COLORS.active.solid, permitted: '#2e7d32' } as const;
+
+/** Name of what each ban type regulates, shown before "Permitted" or "Not permitted". */
 export const TYPE_LABEL: Record<BanType, string> = {
-  'campfire':     'Campfire Ban',
-  'open-burning': 'Open Burning Prohibition',
-  'all-fires':    'All Fires Prohibited',
-  'category2-3':  'Category 2 & 3 Burning Ban',
-  'other':        'Fire Prohibition',
+  'campfire':     'Campfires',
+  'open-burning': 'Open burning',
+  'all-fires':    'All open fires',
+  'category2-3':  'Category 2 & 3 burning',
+  'other':        'Fires',
 };
 
 /** Builds a map expression that picks the red or grey STATUS_COLORS entry from a feature's `active` property. */
