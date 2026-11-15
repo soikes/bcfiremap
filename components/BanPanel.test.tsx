@@ -12,9 +12,10 @@ const renderPanel = (bans: FireBan[], sources: SourceStatus[]) =>
   render(<BanPanel bans={bans} sources={sources} onClose={mock()} />);
 
 describe('BanPanel title', () => {
-  it('says no bans were found when every source loaded and nothing matched', () => {
-    renderPanel([], [ok]);
-    expect(screen.getByText('No fire bans found at this location')).toBeInTheDocument();
+  it('renders nothing when every source loaded and nothing matched', () => {
+    const { container } = renderPanel([], [ok]);
+    expect(container).toBeEmptyDOMElement();
+    expect(screen.queryByText(/No fire bans found/)).not.toBeInTheDocument();
   });
 
   it('uses the singular for one ban', () => {

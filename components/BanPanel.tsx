@@ -10,8 +10,8 @@ interface Props {
   onClose: () => void;
 }
 
-/** Headline for the panel, based on the bans in effect, the inactive bans found and whether every source loaded. */
-function panelTitle(bans: FireBan[], sources: SourceStatus[]): string {
+/** Headline for the panel, based on the bans in effect, the inactive bans found and whether every source loaded; null when every source loaded and nothing was found, so there is nothing to show. */
+function panelTitle(bans: FireBan[], sources: SourceStatus[]): string | null {
   const inEffect = bans.filter((ban) => active(ban)).length;
   if (inEffect > 0)
     return `${inEffect} fire ban${inEffect !== 1 ? "s" : ""} in effect`;
@@ -20,7 +20,7 @@ function panelTitle(bans: FireBan[], sources: SourceStatus[]): string {
     return "Loading ban data…";
   if (failedSources(sources).length > 0)
     return "No fire bans found in the sources that loaded";
-  return "No fire bans found at this location";
+  return null;
 }
 
 /** One-line status for a data source. */
@@ -69,8 +69,10 @@ export function BanPanelFallback() {
   );
 }
 
-/** Bottom sheet listing the fire bans in effect at the selected location, and which sources were checked. */
+/** Bottom sheet listing the fire bans at the selected location, and which sources were checked; renders nothing when every source loaded and there are no bans. */
 export function BanPanel({ bans, sources, onClose }: Props) {
+  const title = panelTitle(bans, sources);
+  if (title === null) return null;
   const shown = relevantSources(bans, sources);
   const attributions = [
     ...new Set(shown.map((s) => s.attribution).filter(Boolean)),
@@ -81,7 +83,7 @@ export function BanPanel({ bans, sources, onClose }: Props) {
     <div className="ban-panel">
       <section className="ban-panel-sheet">
         <header className="ban-panel-header">
-          <h2 className="ban-panel-title">{panelTitle(bans, sources)}</h2>
+          <h2 className="ban-panel-title">{title}</h2>
           <button
             type="button"
             className="ban-panel-close"

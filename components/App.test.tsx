@@ -80,14 +80,15 @@ describe('App when every source loads', () => {
     expect(screen.queryByText(/bans may be missing/)).not.toBeInTheDocument();
   });
 
-  it('says there are no bans at a point outside every ban area', async () => {
+  it('shows no panel at a point outside every ban area', async () => {
     route({ [PROVINCIAL_URL]: BCWS_FEED, [BANS_API_PATH]: SERVER_EMPTY });
     renderApp();
     await waitFor(() => expect(bannerRows()).toEqual([]));
 
     clickMap(...OUTSIDE);
 
-    expect(screen.getByText('No fire bans found at this location')).toBeInTheDocument();
+    expect(screen.queryByText(/fire bans? (in effect|found)/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Close' })).not.toBeInTheDocument();
   });
 });
 
