@@ -1,12 +1,11 @@
 import type { ExpressionSpecification } from 'maplibre-gl';
 import { BanLevel, BanType } from '../types/ban';
 
-/** Fill/stroke colors for each ban jurisdiction level. */
-export const BAN_COLORS: Record<BanLevel, { fill: string; stroke: string }> = {
-  provincial:          { fill: 'rgba(220,50,50,0.08)',  stroke: 'rgba(220,50,50,0.65)'  },
-  'regional-district': { fill: 'rgba(220,140,20,0.08)', stroke: 'rgba(220,140,20,0.65)' },
-  municipal:           { fill: 'rgba(50,100,220,0.08)', stroke: 'rgba(50,100,220,0.65)' },
-};
+/** Map fill/outline colors and the solid card color for a ban that is in force (red) and one that is not (grey). */
+export const STATUS_COLORS = {
+  active:   { fill: 'rgba(220,50,50,0.08)',   stroke: 'rgba(220,50,50,0.65)',   solid: '#dc3232' },
+  inactive: { fill: 'rgba(120,120,120,0.08)', stroke: 'rgba(120,120,120,0.65)', solid: '#757575' },
+} as const;
 
 /** Human-readable label for each ban level. */
 export const LEVEL_LABEL: Record<BanLevel, string> = {
@@ -24,12 +23,10 @@ export const TYPE_LABEL: Record<BanType, string> = {
   'other':        'Fire Prohibition',
 };
 
-/** Builds a map expression that picks a BAN_COLORS entry from a feature's `level` property. */
-export const levelColor = (kind: 'fill' | 'stroke'): ExpressionSpecification => [
-  'match',
-  ['get', 'level'],
-  'provincial', BAN_COLORS.provincial[kind],
-  'regional-district', BAN_COLORS['regional-district'][kind],
-  'municipal', BAN_COLORS.municipal[kind],
-  'rgba(0,0,0,0)',
+/** Builds a map expression that picks the red or grey STATUS_COLORS entry from a feature's `active` property. */
+export const activeColor = (kind: 'fill' | 'stroke'): ExpressionSpecification => [
+  'case',
+  ['==', ['get', 'active'], true],
+  STATUS_COLORS.active[kind],
+  STATUS_COLORS.inactive[kind],
 ];

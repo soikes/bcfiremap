@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 import type { MultiPolygon, Polygon } from 'geojson';
-import { makeBan } from '../test/fixtures';
+import { makeBan, makeInactiveBan } from '../test/fixtures';
 import { bansToFeatureCollection, pointInGeometry, pointInPolygon, pointToFeatureCollection } from './geometry';
 
 const point = (latitude: number, longitude: number) => ({ latitude, longitude });
@@ -92,12 +92,17 @@ describe('bansToFeatureCollection', () => {
     expect(feature.geometry).toBe(ban.geometry);
   });
 
+  it('marks a ban outside its yearly period as not active', () => {
+    const [on, off] = bansToFeatureCollection([makeBan({ id: 'on' }), makeInactiveBan({ id: 'off' })]).features;
+    expect([on.properties?.active, off.properties?.active]).toEqual([true, false]);
+  });
+
   it('carries id, level and region as properties', () => {
     const [feature] = bansToFeatureCollection([
       makeBan({ id: 'rd-1', level: 'regional-district', region: 'Some District' }),
     ]).features;
     expect(feature.id).toBe('rd-1');
-    expect(feature.properties).toEqual({ id: 'rd-1', level: 'regional-district', region: 'Some District' });
+    expect(feature.properties).toEqual({ id: 'rd-1', level: 'regional-district', region: 'Some District', active: true });
   });
 
   it('keeps MultiPolygon geometries', () => {

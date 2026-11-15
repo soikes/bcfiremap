@@ -1,6 +1,42 @@
 import { describe, expect, it } from 'bun:test';
 import { makeBan, makeSource } from '../test/fixtures';
-import { failedSources, isFireBan, isSourceStatus, parseBansResponse, validBans } from './bans';
+import { active, failedSources, isFireBan, isSourceStatus, parseBansResponse, validBans } from './bans';
+
+describe('active', () => {
+  const noon = (iso: string) => new Date(`${iso}T12:00:00`);
+
+  it('is active with no expiry date', () => {
+    expect(active(makeBan({ expiryDate: undefined }), noon('2026-07-01'))).toBe(true);
+  });
+
+  it('is active before and on its expiry date, and inactive after it', () => {
+    const ban = makeBan({ expiryDate: '2026-09-30' });
+    expect(active(ban, noon('2026-09-29'))).toBe(true);
+    expect(active(ban, new Date(2026, 8, 30, 23, 59))).toBe(true);
+    expect(active(ban, noon('2026-10-01'))).toBe(false);
+  });
+
+  it('compares a full timestamp expiry to the exact time', () => {
+    const ban = makeBan({ expiryDate: '2026-09-30T10:00:00Z' });
+    expect(active(ban, new Date('2026-09-30T09:59:00Z'))).toBe(true);
+    expect(active(ban, new Date('2026-09-30T10:01:00Z'))).toBe(false);
+  });
+
+  it('ignores an expiry date it cannot read', () => {
+    expect(active(makeBan({ expiryDate: 'sometime soon' }), noon('2026-07-01'))).toBe(true);
+  });
+
+  it('is inactive when expired even inside its yearly period', () => {
+    const ban = makeBan({ expiryDate: '2026-01-01', annualEffectivePeriod: { start: '01-01', end: '12-31' } });
+    expect(active(ban, noon('2026-07-01'))).toBe(false);
+  });
+
+  it('still follows its yearly period when not expired', () => {
+    const ban = makeBan({ expiryDate: '2030-01-01', annualEffectivePeriod: { start: '06-01', end: '09-30' } });
+    expect(active(ban, noon('2026-07-01'))).toBe(true);
+    expect(active(ban, noon('2026-12-01'))).toBe(false);
+  });
+});
 
 describe('isFireBan', () => {
   it('accepts a complete ban, with or without the optional fields', () => {

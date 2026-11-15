@@ -1,6 +1,7 @@
 import type { Polygon } from 'geojson';
 import { SourceStatus } from '../types/api';
 import { FireBan } from '../types/ban';
+import type { MonthDay } from '../utils/monthDay';
 
 /** Builds a closed rectangular Polygon from its edges. */
 const rect = (south: number, west: number, north: number, east: number): Polygon => ({
@@ -92,3 +93,9 @@ export const makeSource = (overrides: Partial<SourceStatus> = {}): SourceStatus 
   updatedAt: Date.UTC(2026, 6, 1, 19, 0),
   ...overrides,
 });
+
+/** Like `makeBan`, but a standing ban whose one-day yearly period is half a year from today, so it is not active now. */
+export const makeInactiveBan = (overrides: Partial<FireBan> = {}): FireBan => {
+  const day = `${String(((new Date().getMonth() + 6) % 12) + 1).padStart(2, '0')}-01` as MonthDay;
+  return makeBan({ annualEffectivePeriod: { start: day, end: day }, ...overrides });
+};

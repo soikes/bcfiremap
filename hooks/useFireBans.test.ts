@@ -1,6 +1,6 @@
 import { renderHook } from '@testing-library/react';
 import { describe, expect, it, spyOn } from 'bun:test';
-import { SAMPLE_BANS } from '../test/fixtures';
+import { SAMPLE_BANS, makeBan, makeInactiveBan } from '../test/fixtures';
 import { FireBan } from '../types/ban';
 import { LatLng } from '../types/geo';
 import { useFireBans } from './useFireBans';
@@ -71,5 +71,14 @@ describe('useFireBans', () => {
     expect(result.current).not.toHaveLength(0);
     rerender({ location: null });
     expect(result.current).toEqual([]);
+  });
+
+  it('keeps inactive bans and lists active ones first', () => {
+    const bans = [
+      makeInactiveBan({ id: 'dormant-provincial', level: 'provincial' }),
+      makeBan({ id: 'live-municipal', level: 'municipal' }),
+      makeBan({ id: 'live-provincial', level: 'provincial' }),
+    ];
+    expect(idsAt({ latitude: 49.5, longitude: -119.5 }, bans)).toEqual(['live-provincial', 'live-municipal', 'dormant-provincial']);
   });
 });

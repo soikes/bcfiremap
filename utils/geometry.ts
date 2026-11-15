@@ -1,5 +1,6 @@
 import type { Feature, FeatureCollection, MultiPolygon, Point, Polygon, Position } from 'geojson';
 import { FireBan } from '../types/ban';
+import { active } from './bans';
 import { LatLng } from '../types/geo';
 
 /** True if the point is inside the ring, by counting how many of its edges a ray from the point crosses. */
@@ -37,12 +38,12 @@ export function pointInGeometry(point: LatLng, geometry: Polygon | MultiPolygon)
     : geometry.coordinates.some(rings => inPolygon(point, rings));
 }
 
-/** Converts fire bans to GeoJSON features carrying each ban's id, level and region. */
+/** Converts fire bans to GeoJSON features carrying each ban's id, level, region and whether it is active. */
 export function bansToFeatureCollection(bans: FireBan[]): FeatureCollection<Polygon | MultiPolygon> {
   const features = bans.map((ban): Feature<Polygon | MultiPolygon> => ({
     type: 'Feature',
     id: ban.id,
-    properties: { id: ban.id, level: ban.level, region: ban.region },
+    properties: { id: ban.id, level: ban.level, region: ban.region, active: active(ban) },
     geometry: ban.geometry,
   }));
   return { type: 'FeatureCollection', features };

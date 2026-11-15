@@ -1,19 +1,26 @@
-import { BAN_COLORS, LEVEL_LABEL, TYPE_LABEL } from '../constants/banStyle';
+import { LEVEL_LABEL, STATUS_COLORS, TYPE_LABEL } from '../constants/banStyle';
 import { FireBan } from '../types/ban';
+import { active } from '../utils/bans';
 import './BanCard.css';
 
 interface Props {
   ban: FireBan;
 }
 
-/** Summary card for a single fire ban: level badge, region, type, description, date and bulletin link. */
+/** Summary card for a single fire ban: jurisdiction and active/inactive badges, region, type, description, date and bulletin link, coloured by status. */
 export function BanCard({ ban }: Props) {
-  const c = BAN_COLORS[ban.level];
+  const isActive = active(ban);
+  const color = STATUS_COLORS[isActive ? 'active' : 'inactive'].solid;
   return (
-    <article className="ban-card" style={{ borderLeftColor: c.stroke }}>
-      <span className="ban-card-badge" style={{ backgroundColor: c.stroke }}>
-        {LEVEL_LABEL[ban.level]}
-      </span>
+    <article className="ban-card" style={{ borderLeftColor: color }}>
+      <div className="ban-card-badges">
+        <span className="ban-card-badge" style={{ backgroundColor: color }}>
+          {LEVEL_LABEL[ban.level]}
+        </span>
+        <span className="ban-card-badge ban-card-status" style={{ borderColor: color, color }}>
+          {isActive ? 'Active' : 'Inactive'}
+        </span>
+      </div>
       <h3 className="ban-card-region">{ban.region}</h3>
       <p className="ban-card-type">{ban.title ?? TYPE_LABEL[ban.type]}</p>
       {ban.description ? <p className="ban-card-description">{ban.description}</p> : null}

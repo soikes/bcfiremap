@@ -1,23 +1,21 @@
 import { describe, expect, it } from 'bun:test';
 import { SAMPLE_BANS } from '../test/fixtures';
-import { BAN_COLORS, LEVEL_LABEL, TYPE_LABEL, levelColor } from './banStyle';
+import { LEVEL_LABEL, STATUS_COLORS, TYPE_LABEL, activeColor } from './banStyle';
 
-describe('levelColor', () => {
-  it.each(['fill', 'stroke'] as const)('matches each level to its %s colour', kind => {
-    expect(levelColor(kind)).toEqual([
-      'match',
-      ['get', 'level'],
-      'provincial', BAN_COLORS.provincial[kind],
-      'regional-district', BAN_COLORS['regional-district'][kind],
-      'municipal', BAN_COLORS.municipal[kind],
-      'rgba(0,0,0,0)',
-    ]);
+describe('activeColor', () => {
+  it.each(['fill', 'stroke'] as const)('picks red for an active ban and grey otherwise for the %s', kind => {
+    expect(activeColor(kind)).toEqual(['case', ['==', ['get', 'active'], true], STATUS_COLORS.active[kind], STATUS_COLORS.inactive[kind]]);
+  });
+
+  it('uses red for active and grey for inactive', () => {
+    expect(STATUS_COLORS.active.stroke).toMatch(/^rgba\(220,50,50/);
+    expect(STATUS_COLORS.inactive.stroke).toMatch(/^rgba\(120,120,120/);
   });
 });
 
 describe('ban style tables', () => {
-  it('has a label for every level that has a colour', () => {
-    expect(Object.keys(LEVEL_LABEL).sort()).toEqual(Object.keys(BAN_COLORS).sort());
+  it('has a label for every ban level', () => {
+    expect(Object.keys(LEVEL_LABEL).sort()).toEqual(['municipal', 'provincial', 'regional-district']);
   });
 
   it('has a label for every ban type, including the fallback', () => {

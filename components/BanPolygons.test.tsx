@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'bun:test';
-import { levelColor } from '../constants/banStyle';
+import { activeColor } from '../constants/banStyle';
 import { makeBan } from '../test/fixtures';
 import { rendered } from '../test/fakeMapLibre';
 import { bansToFeatureCollection } from '../utils/geometry';
@@ -20,12 +20,12 @@ describe('BanPolygons', () => {
     expect(within(source).getByTestId('layer-ban-outline')).toBeInTheDocument();
   });
 
-  it('colours the fill and the outline by ban level', () => {
+  it('colours the fill and the outline red when a ban is active and blue when not', () => {
     render(<BanPolygons bans={[makeBan()]} />);
-    expect(rendered.layers.get('ban-fill')).toMatchObject({ type: 'fill', paint: { 'fill-color': levelColor('fill') } });
+    expect(rendered.layers.get('ban-fill')).toMatchObject({ type: 'fill', paint: { 'fill-color': activeColor('fill') } });
     expect(rendered.layers.get('ban-outline')).toMatchObject({
       type: 'line',
-      paint: { 'line-color': levelColor('stroke'), 'line-width': 2 },
+      paint: { 'line-color': activeColor('stroke'), 'line-width': 2 },
     });
   });
 

@@ -4,8 +4,26 @@ import { BAN_LEVELS, BAN_TYPES } from '../constants/ban';
 import { BansResponse, SourceStatus } from '../types/api';
 import { FireBan } from '../types/ban';
 import { logger } from './logger';
+import { isDateInMonthDayRange } from './monthDay';
 
 type Fields = Record<string, unknown>;
+
+/** True if the expiry (a date-only `YYYY-MM-DD` counts through the end of that local day, any other value as a timestamp) is in the past; an unreadable expiry never expires. */
+function expired(expiryDate: string, now: Date): boolean {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(expiryDate)) {
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    return today > expiryDate;
+  }
+  const time = Date.parse(expiryDate);
+  return !Number.isNaN(time) && now.getTime() > time;
+}
+
+/** True if the ban is in force at `now`: not past its expiry date, and, for a standing ban, inside its yearly period. */
+export function active(ban: FireBan, now = new Date()): boolean {
+  if (ban.expiryDate && expired(ban.expiryDate, now)) return false;
+  if (!ban.annualEffectivePeriod) return true;
+  return isDateInMonthDayRange(now, ban.annualEffectivePeriod);
+}
 
 /** True if the value is a non-null object. */
 const isObject = (value: unknown): value is Fields => typeof value === 'object' && value !== null;

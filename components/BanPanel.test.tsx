@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, mock } from 'bun:test';
-import { makeBan, makeSource } from '../test/fixtures';
+import { makeBan, makeInactiveBan, makeSource } from '../test/fixtures';
 import { SourceStatus } from '../types/api';
 import { FireBan } from '../types/ban';
 import { BanPanel, BanPanelFallback } from './BanPanel';
@@ -20,6 +20,17 @@ describe('BanPanel title', () => {
   it('uses the singular for one ban', () => {
     renderPanel([makeBan()], [ok]);
     expect(screen.getByText('1 fire ban in effect')).toBeInTheDocument();
+  });
+
+  it('counts only active bans in the title and still lists inactive ones', () => {
+    renderPanel([makeBan({ id: 'a', region: 'Active Place' }), makeInactiveBan({ id: 'b', region: 'Dormant Place' })], [ok]);
+    expect(screen.getByText('1 fire ban in effect')).toBeInTheDocument();
+    expect(screen.getByText('Dormant Place')).toBeInTheDocument();
+  });
+
+  it('says no bans are in effect when every ban found is inactive', () => {
+    renderPanel([makeInactiveBan()], [ok]);
+    expect(screen.getByText('No fire bans in effect right now')).toBeInTheDocument();
   });
 
   it('uses the plural and lists every ban for several', () => {

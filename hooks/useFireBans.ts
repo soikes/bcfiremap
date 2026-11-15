@@ -1,9 +1,9 @@
 import { useMemo } from "react";
 import { BanLevel, FireBan } from "../types/ban";
 import { LatLng } from "../types/geo";
+import { active } from "../utils/bans";
 import { pointInGeometry } from "../utils/geometry";
 import { logger } from "../utils/logger";
-import { isDateInMonthDayRange } from "../utils/monthDay";
 
 const LEVEL_ORDER: Record<BanLevel, number> = {
   provincial: 0,
@@ -24,14 +24,7 @@ function covers(ban: FireBan, location: LatLng): boolean {
   }
 }
 
-/** True if the ban is active. Relevant for partial yearly standing bans. */
-export function active(ban: FireBan): boolean {
-  if (!ban.annualEffectivePeriod) return true;
-  const now: Date = new Date();
-  return isDateInMonthDayRange(now, ban.annualEffectivePeriod);
-}
-
-/** Returns the bans whose area contains `location`, broadest first; empty when `location` is null. */
+/** Returns the bans whose area contains `location`, active ones first and each group broadest first; empty when `location` is null. */
 export function useFireBans(
   bans: FireBan[],
   location: LatLng | null,
@@ -40,8 +33,11 @@ export function useFireBans(
     if (!location) return [];
     const hits = bans
       .filter((ban) => covers(ban, location))
-      .filter((ban) => active(ban))
-      .sort((a, b) => LEVEL_ORDER[a.level] - LEVEL_ORDER[b.level]);
+      .sort(
+        (a, b) =>
+          Number(active(b)) - Number(active(a)) ||
+          LEVEL_ORDER[a.level] - LEVEL_ORDER[b.level],
+      );
     logger.log(
       "[useFireBans] bans at",
       location,
