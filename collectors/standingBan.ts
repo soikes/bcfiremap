@@ -16,7 +16,7 @@ export interface StandingBanConfig {
   rulesUrl: string;
   effectiveDate?: string;
   expiryDate?: string;
-  annualEffectivePeriod?: MonthDayRange;
+  annualEffectivePeriod?: MonthDayRange | MonthDayRange[];
 }
 
 /** Builds one of a municipality's standing bans over its boundary. */

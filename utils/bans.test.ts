@@ -58,6 +58,11 @@ describe('active', () => {
     expect(active(ban, noon('2026-07-01'))).toBe(true);
     expect(active(ban, noon('2026-12-01'))).toBe(false);
   });
+
+  it('is active inside any of several yearly periods', () => {
+    const ban = makeBan({ effectiveDate: undefined, annualEffectivePeriod: [{ start: '12-01', end: '03-14' }, { start: '04-16', end: '10-31' }] });
+    expect([active(ban, noon('2026-01-10')), active(ban, noon('2026-07-01')), active(ban, noon('2026-11-15')), active(ban, noon('2026-03-20'))]).toEqual([true, true, false, false]);
+  });
 });
 
 describe('isFireBan', () => {

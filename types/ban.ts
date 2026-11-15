@@ -17,7 +17,7 @@ export interface FireBan {
   description: string;
   effectiveDate?: string;
   expiryDate?: string;
-  annualEffectivePeriod?: MonthDayRange;
+  annualEffectivePeriod?: MonthDayRange | MonthDayRange[];
   url?: string;
   authorityId?: string;
   applicability?: Applicability;

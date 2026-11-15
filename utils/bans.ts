@@ -19,12 +19,12 @@ function compareToNow(date: string, now: Date): -1 | 0 | 1 | undefined {
   return time < now.getTime() ? -1 : 1;
 }
 
-/** True if the ban is in force at `now`: it has started and not passed its expiry (a date-only expiry counts through that whole day), and, for a standing ban, `now` is inside its yearly period. Dates that can't be read are ignored. */
+/** True if the ban is in force at `now`: it has started and not passed its expiry (a date-only expiry counts through that whole day), and, for a standing ban, `now` is inside one of its yearly periods. Dates that can't be read are ignored. */
 export function active(ban: FireBan, now = new Date()): boolean {
   if (ban.effectiveDate && compareToNow(ban.effectiveDate, now) === 1) return false;
   if (ban.expiryDate && compareToNow(ban.expiryDate, now) === -1) return false;
   if (!ban.annualEffectivePeriod) return true;
-  return isDateInMonthDayRange(now, ban.annualEffectivePeriod);
+  return [ban.annualEffectivePeriod].flat().some(range => isDateInMonthDayRange(now, range));
 }
 
 /** True if the value is a non-null object. */
