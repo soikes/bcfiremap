@@ -21,8 +21,24 @@ describe('currentLocation', () => {
     await expect(currentLocation()).rejects.toThrow('Location access was blocked');
   });
 
+  const failWith = (code: number) =>
+    setGeolocation({
+      getCurrentPosition: (_ok: unknown, fail: (e: unknown) => void) =>
+        fail({ code, PERMISSION_DENIED: 1, POSITION_UNAVAILABLE: 2, TIMEOUT: 3, message: 'failed' }),
+    });
+
+  it('says the device could not work out its position when none is available', async () => {
+    failWith(2);
+    await expect(currentLocation()).rejects.toThrow('couldn’t work out where it is');
+  });
+
+  it('says it took too long on a timeout', async () => {
+    failWith(3);
+    await expect(currentLocation()).rejects.toThrow('took too long');
+  });
+
   it('rejects with a general message for any other failure', async () => {
-    setGeolocation({ getCurrentPosition: (_ok: unknown, fail: (e: unknown) => void) => fail({ code: 3, PERMISSION_DENIED: 1, message: 'timeout' }) });
+    failWith(0);
     await expect(currentLocation()).rejects.toThrow('Couldn’t find your location');
   });
 
