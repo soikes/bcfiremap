@@ -11,6 +11,7 @@ import './App.css';
 import { BanPanel, BanPanelFallback } from './BanPanel';
 import { BanPolygons } from './BanPolygons';
 import { BaseMap } from './BaseMap';
+import { Disclaimer } from './Disclaimer';
 import { ErrorBoundary } from './ErrorBoundary';
 import { FireZones } from './FireZones';
 import { LocationSearch } from './LocationSearch';
@@ -60,6 +61,7 @@ function MapScreen({ collectors }: { collectors: Collector[] }) {
           <MapFocus target={focus} bans={bansHere} />
         </ErrorBoundary>
       </BaseMap>
+      <Disclaimer />
       <div className="app-controls">
         <div className="app-controls-main">
           <LocationSearch onLocate={locate} />
