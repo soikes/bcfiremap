@@ -26,6 +26,28 @@ describe('active', () => {
     expect(active(makeBan({ expiryDate: 'sometime soon' }), noon('2026-07-01'))).toBe(true);
   });
 
+  it('is inactive before its effective date and active from that day on', () => {
+    const ban = makeBan({ effectiveDate: '2026-07-01' });
+    expect(active(ban, noon('2026-06-30'))).toBe(false);
+    expect(active(ban, new Date(2026, 6, 1, 0, 1))).toBe(true);
+    expect(active(ban, noon('2026-07-02'))).toBe(true);
+  });
+
+  it('compares a full timestamp effective date to the exact time', () => {
+    const ban = makeBan({ effectiveDate: '2026-07-01T10:00:00Z' });
+    expect(active(ban, new Date('2026-07-01T09:59:00Z'))).toBe(false);
+    expect(active(ban, new Date('2026-07-01T10:01:00Z'))).toBe(true);
+  });
+
+  it('ignores an effective date it cannot read', () => {
+    expect(active(makeBan({ effectiveDate: 'soon' }), noon('2026-07-01'))).toBe(true);
+  });
+
+  it('is active only between its effective and expiry dates', () => {
+    const ban = makeBan({ effectiveDate: '2026-06-01', expiryDate: '2026-08-31' });
+    expect([noon('2026-05-31'), noon('2026-07-01'), noon('2026-09-01')].map(d => active(ban, d))).toEqual([false, true, false]);
+  });
+
   it('is inactive when expired even inside its yearly period', () => {
     const ban = makeBan({ expiryDate: '2026-01-01', annualEffectivePeriod: { start: '01-01', end: '12-31' } });
     expect(active(ban, noon('2026-07-01'))).toBe(false);

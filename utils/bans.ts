@@ -8,19 +8,21 @@ import { isDateInMonthDayRange } from './monthDay';
 
 type Fields = Record<string, unknown>;
 
-/** True if the expiry (a date-only `YYYY-MM-DD` counts through the end of that local day, any other value as a timestamp) is in the past; an unreadable expiry never expires. */
-function expired(expiryDate: string, now: Date): boolean {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(expiryDate)) {
+/** Compares a ban's date to `now`: -1 if the date is in the past, 0 if it is today (date-only values) and 1 if it is in the future; undefined if it can't be read. A `YYYY-MM-DD` value is a local calendar day, any other value a timestamp. */
+function compareToNow(date: string, now: Date): -1 | 0 | 1 | undefined {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    return today > expiryDate;
+    return date < today ? -1 : date > today ? 1 : 0;
   }
-  const time = Date.parse(expiryDate);
-  return !Number.isNaN(time) && now.getTime() > time;
+  const time = Date.parse(date);
+  if (Number.isNaN(time)) return undefined;
+  return time < now.getTime() ? -1 : 1;
 }
 
-/** True if the ban is in force at `now`: not past its expiry date, and, for a standing ban, inside its yearly period. */
+/** True if the ban is in force at `now`: it has started and not passed its expiry (a date-only expiry counts through that whole day), and, for a standing ban, `now` is inside its yearly period. Dates that can't be read are ignored. */
 export function active(ban: FireBan, now = new Date()): boolean {
-  if (ban.expiryDate && expired(ban.expiryDate, now)) return false;
+  if (ban.effectiveDate && compareToNow(ban.effectiveDate, now) === 1) return false;
+  if (ban.expiryDate && compareToNow(ban.expiryDate, now) === -1) return false;
   if (!ban.annualEffectivePeriod) return true;
   return isDateInMonthDayRange(now, ban.annualEffectivePeriod);
 }
