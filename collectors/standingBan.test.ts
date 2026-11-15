@@ -4,6 +4,13 @@ import { OAK_BAY_AUTHORITY } from "../constants/authority";
 import { buildStandingBan } from "./standingBan";
 import { oakBayCollector } from "./oakBay";
 import { victoriaCollector } from "./victoria";
+import { metchosinCollector } from "./metchosin";
+import { langfordCollector } from "./langford";
+import { sookeCollector } from "./sooke";
+import { centralSaanichCollector } from "./centralSaanich";
+import { colwoodCollector } from "./colwood";
+import { viewRoyalCollector } from "./viewRoyal";
+import { isDateInMonthDayRange } from "../utils/monthDay";
 
 const polygon = {
   type: "Polygon",
@@ -115,5 +122,60 @@ describe("municipal collectors", () => {
       "oak-bay:open-fires",
     ]);
     expect(oakBay.source).toBe(oakBayCollector.id);
+  });
+});
+
+describe("seasonal and multi-ban municipal collectors", () => {
+  const answerWith = (name: string) => {
+    globalThis.fetch = mock(async () =>
+      Response.json({
+        features: [
+          {
+            properties: { LGL_ADMIN_AREA_ID: 7, ADMIN_AREA_ABBREVIATION: name },
+            geometry: polygon,
+          },
+        ],
+      }),
+    ) as never;
+  };
+
+  it("gives Metchosin a year-round beach fire ban and a summer burning ban", async () => {
+    answerWith("Metchosin");
+    const bans = await metchosinCollector.collect();
+    expect(bans.map((ban) => [ban.id, ban.type])).toEqual([
+      ["metchosin:beach-fires", "campfire"],
+      ["metchosin:backyard-burning", "open-burning"],
+    ]);
+    expect(bans.every(isFireBan)).toBe(true);
+  });
+
+  it("covers every day Langford does not allow open burning, and none that it does", async () => {
+    answerWith("Langford");
+    const bans = await langfordCollector.collect();
+    const banned = (month: number, day: number) =>
+      bans.some((ban) =>
+        isDateInMonthDayRange(new Date(2026, month - 1, day), ban.annualEffectivePeriod!),
+      );
+    expect(bans.map((ban) => ban.id)).toEqual([
+      "langford:open-burning-winter",
+      "langford:open-burning-summer",
+    ]);
+    expect([banned(11, 1), banned(11, 30), banned(3, 15), banned(4, 15)]).toEqual([false, false, false, false]);
+    expect([banned(12, 1), banned(3, 14), banned(4, 16), banned(10, 31), banned(7, 1)]).toEqual([true, true, true, true, true]);
+  });
+
+  it("builds the single-ban municipalities with their own id, type and season", async () => {
+    const cases = [
+      [sookeCollector, "Sooke", "open-burning", { start: "05-01", end: "10-31" }],
+      [centralSaanichCollector, "Central Saanich", "open-burning", { start: "05-16", end: "10-15" }],
+      [colwoodCollector, "Colwood", "all-fires", { start: "01-01", end: "12-31" }],
+      [viewRoyalCollector, "View Royal", "all-fires", { start: "01-01", end: "12-31" }],
+    ] as const;
+    for (const [collector, name, type, period] of cases) {
+      answerWith(name);
+      const [ban] = await collector.collect();
+      expect(ban).toMatchObject({ source: collector.id, type, annualEffectivePeriod: period });
+      expect(isFireBan(ban)).toBe(true);
+    }
   });
 });
