@@ -1,29 +1,40 @@
-import { act, renderHook, waitFor } from '@testing-library/react';
-import { describe, expect, it } from 'bun:test';
+import { act, renderHook } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, jest } from 'bun:test';
 import { useTimedMessage } from './useTimedMessage';
 
-const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+beforeEach(() => jest.useFakeTimers());
+afterEach(() => jest.useRealTimers());
+
+/** Moves the fake clock forward inside act, so React applies the resulting updates. */
+const advance = (ms: number) =>
+  act(() => {
+    jest.advanceTimersByTime(ms);
+  });
 
 describe('useTimedMessage', () => {
-  it('starts empty, holds a message, then clears it after the time', async () => {
+  it('starts empty, holds a message, then clears it after the time', () => {
     const { result } = renderHook(() => useTimedMessage(60));
     expect(result.current[0]).toBeNull();
 
     act(() => result.current[1]('Hello'));
     expect(result.current[0]).toBe('Hello');
 
-    await waitFor(() => expect(result.current[0]).toBeNull());
+    advance(59);
+    expect(result.current[0]).toBe('Hello');
+    advance(1);
+    expect(result.current[0]).toBeNull();
   });
 
-  it('restarts the countdown when a new message is set', async () => {
+  it('restarts the countdown when a new message is set', () => {
     const { result } = renderHook(() => useTimedMessage(150));
     act(() => result.current[1]('First'));
-    await act(() => pause(100));
+    advance(100);
     act(() => result.current[1]('Second'));
-    await act(() => pause(100));
+    advance(100);
     expect(result.current[0]).toBe('Second');
 
-    await waitFor(() => expect(result.current[0]).toBeNull());
+    advance(50);
+    expect(result.current[0]).toBeNull();
   });
 
   it('clears straight away when set to null', () => {

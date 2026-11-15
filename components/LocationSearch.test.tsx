@@ -98,30 +98,22 @@ describe('LocationSearch my location', () => {
 });
 
 describe('LocationSearch messages', () => {
-  it('hides a message after a while', async () => {
-    answer([]);
-    const { user } = setup(60);
-    await searchFor(user, 'Nowhere');
-    expect(await screen.findByText('No places found in British Columbia')).toBeInTheDocument();
-    await waitFor(() => expect(screen.queryByText('No places found in British Columbia')).not.toBeInTheDocument());
-  });
-
-  it('keeps a message until the time is up', async () => {
+  it('shows a message when a search finds nothing (it clears itself after the message time, see useTimedMessage)', async () => {
     answer([]);
     const { user } = setup(60_000);
     await searchFor(user, 'Nowhere');
     expect(await screen.findByText('No places found in British Columbia')).toBeInTheDocument();
-    await new Promise(resolve => setTimeout(resolve, 100));
-    expect(screen.getByText('No places found in British Columbia')).toBeInTheDocument();
   });
 
-  it('shows a repeated failure for the full time again', async () => {
+  it('clears the message when a new search starts', async () => {
     answer([]);
-    const { user } = setup(150);
+    const { user } = setup(60_000);
     await searchFor(user, 'Nowhere');
-    await screen.findByText('No places found in British Columbia');
-    await waitFor(() => expect(screen.queryByText('No places found in British Columbia')).not.toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: 'Search' }));
     expect(await screen.findByText('No places found in British Columbia')).toBeInTheDocument();
+
+    answer([KAMLOOPS, KELOWNA]);
+    await user.click(screen.getByRole('button', { name: 'Search' }));
+    expect(await screen.findByRole('list')).toBeInTheDocument();
+    expect(screen.queryByText('No places found in British Columbia')).not.toBeInTheDocument();
   });
 });

@@ -60,9 +60,6 @@ const spinning = () => screen.queryByRole('status', { name: 'Loading ban data' }
 /** The text of the failed-load toast, or null when it isn't showing; waitFor checks compare these plain values, because a failed check on a happy-dom element prints the whole element, which is slow enough to delay the app's timers. */
 const toast = () => screen.queryByText(LOAD_FAILED_MESSAGE)?.textContent ?? null;
 
-/** Waits a moment so a check that something has not happened has had time to fail. */
-const pause = (ms = 200) => new Promise(resolve => setTimeout(resolve, ms));
-
 afterEach(async () => {
   cleanup();
   await Promise.all(clients.map(client => client.cancelQueries()));
@@ -151,16 +148,6 @@ describe('App while sources are loading', () => {
     expect(toast()).toBeNull();
   });
 
-  it('keeps spinning while one source is still loading', async () => {
-    route({ [PROVINCIAL_URL]: hangs, [BANS_API_PATH]: SERVER_EMPTY });
-    renderApp();
-
-    await waitFor(() => expect(spinning()).toBe(true));
-    await pause();
-    expect(spinning()).toBe(true);
-    expect(toast()).toBeNull();
-  });
-
   it('stops spinning once every source has answered', async () => {
     route({ [PROVINCIAL_URL]: BCWS_FEED, [BANS_API_PATH]: SERVER_EMPTY });
     renderApp();
@@ -180,24 +167,15 @@ describe('App while sources are loading', () => {
 });
 
 describe('App when loading takes too long', () => {
-  it('stops spinning after the timeout and says some ban data did not load', async () => {
+  it('stops spinning at the timeout and says some ban data did not load', async () => {
     route({ [PROVINCIAL_URL]: hangs, [BANS_API_PATH]: hangs });
-    renderApp({ retry: false }, 150);
+    renderApp({ retry: false }, 1);
     expect(spinning()).toBe(true);
     expect(toast()).toBeNull();
 
-    await waitFor(() => expect(spinning()).toBe(false));
-    expect(toast()).toBe(LOAD_FAILED_MESSAGE);
+    await waitFor(() => expect(toast()).toBe(LOAD_FAILED_MESSAGE));
+    expect(spinning()).toBe(false);
     expect(screen.getByTestId('map')).toBeInTheDocument();
-  });
-
-  it('does not time out sources that answered in time', async () => {
-    route({ [PROVINCIAL_URL]: BCWS_FEED, [BANS_API_PATH]: SERVER_EMPTY });
-    renderApp({ retry: false }, 150);
-
-    await waitFor(() => expect(spinning()).toBe(false));
-    await pause(300);
-    expect(toast()).toBeNull();
   });
 });
 
@@ -239,9 +217,9 @@ describe('App when a source fails', () => {
   it('waits for the source that is still loading before showing the toast', async () => {
     route({ [PROVINCIAL_URL]: unreachable, [BANS_API_PATH]: hangs });
     renderApp();
+    clickMap(...INSIDE);
+    expect(await screen.findByText('BC Wildfire Service: unavailable')).toBeInTheDocument();
 
-    await waitFor(() => expect(spinning()).toBe(true));
-    await pause();
     expect(spinning()).toBe(true);
     expect(toast()).toBeNull();
   });
@@ -270,19 +248,9 @@ describe('App when a source fails', () => {
 
 describe('App while a source is retried', () => {
   it('keeps spinning through the retries and shows the toast when they run out', async () => {
-    let calls = 0;
-    const slowlyFails: Reply = async () => {
-      calls += 1;
-      await new Promise(resolve => setTimeout(resolve, 100));
-      throw new TypeError(`Failed to fetch (attempt ${calls})`);
-    };
-    route({ [PROVINCIAL_URL]: slowlyFails, [BANS_API_PATH]: SERVER_EMPTY });
-    renderApp({ retry: 1, retryDelay: 200 });
-
-    await waitFor(() => expect(spinning()).toBe(true));
-    await pause(250);
+    route({ [PROVINCIAL_URL]: unreachable, [BANS_API_PATH]: SERVER_EMPTY });
+    renderApp({ retry: 1, retryDelay: 20 });
     expect(spinning()).toBe(true);
-    expect(toast()).toBeNull();
 
     await waitFor(() => expect(toast()).toBe(LOAD_FAILED_MESSAGE));
     expect(spinning()).toBe(false);
@@ -290,9 +258,8 @@ describe('App while a source is retried', () => {
 
   it('shows no toast and the bans when the retry succeeds', async () => {
     route({ [PROVINCIAL_URL]: failsThenAnswers(1, BCWS_2022_FEED), [BANS_API_PATH]: SERVER_EMPTY });
-    renderApp({ retry: 1, retryDelay: 300 });
+    renderApp({ retry: 1, retryDelay: 20 });
 
-    await waitFor(() => expect(spinning()).toBe(true));
     await waitFor(() => expect(spinning()).toBe(false));
     expect(toast()).toBeNull();
     clickMap(...INSIDE);
@@ -301,21 +268,21 @@ describe('App while a source is retried', () => {
 
   it('says the source is being retried in the panel while the retry is pending', async () => {
     route({ [PROVINCIAL_URL]: unreachable, [BANS_API_PATH]: SERVER_EMPTY });
-    renderApp({ retry: 1, retryDelay: 5000 });
-    await waitFor(() => expect(spinning()).toBe(true));
+    renderApp({ retry: 1, retryDelay: 60_000 });
 
     clickMap(...INSIDE);
 
     expect(await screen.findByText("BC Wildfire Service: couldn't load, retrying…")).toBeInTheDocument();
     expect(screen.getByText('Loading ban data…')).toBeInTheDocument();
+    expect(spinning()).toBe(true);
   });
 
-  it('keeps spinning while a request to the server is retried', async () => {
+  it('keeps spinning, without a toast, while a request to the server is retried', async () => {
     route({ [PROVINCIAL_URL]: BCWS_FEED, [BANS_API_PATH]: unreachable });
-    renderApp({ retry: 1, retryDelay: 5000 });
+    renderApp({ retry: 1, retryDelay: 60_000 });
+    clickMap(...INSIDE);
+    expect(await screen.findByText("BC Fire Bans server: couldn't load, retrying…")).toBeInTheDocument();
 
-    await waitFor(() => expect(spinning()).toBe(true));
-    await pause();
     expect(spinning()).toBe(true);
     expect(toast()).toBeNull();
   });

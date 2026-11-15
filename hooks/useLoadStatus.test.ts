@@ -1,17 +1,24 @@
-import { act, renderHook, waitFor } from '@testing-library/react';
-import { describe, expect, it } from 'bun:test';
+import { act, renderHook } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, jest } from 'bun:test';
 import { makeSource } from '../test/fixtures';
 import { SourceStatus } from '../types/api';
 import { LOAD_FAILED_MESSAGE, useLoadStatus } from './useLoadStatus';
 
-const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+beforeEach(() => jest.useFakeTimers());
+afterEach(() => jest.useRealTimers());
+
+/** Moves the fake clock forward inside act, so React applies the resulting updates. */
+const advance = (ms: number) =>
+  act(() => {
+    jest.advanceTimersByTime(ms);
+  });
 
 const loading = (id: string, extra: Partial<SourceStatus> = {}) =>
   makeSource({ id, name: id, status: 'pending', hasData: false, fetching: true, ...extra });
 const failed = (id: string) => makeSource({ id, name: id, status: 'error', hasData: false });
 const loaded = (id: string) => makeSource({ id, name: id });
 
-const setup = (initial: SourceStatus[], options = { timeoutMs: 80, messageMs: 5000 }) =>
+const setup = (initial: SourceStatus[], options = { timeoutMs: 1000, messageMs: 5000 }) =>
   renderHook(({ sources }: { sources: SourceStatus[] }) => useLoadStatus(sources, options), { initialProps: { sources: initial } });
 
 describe('useLoadStatus loading', () => {
@@ -37,19 +44,25 @@ describe('useLoadStatus loading', () => {
     expect(result.current.loading).toBe(false);
   });
 
-  it('stops loading after the timeout even though a source is still loading', async () => {
+  it('stops loading after the timeout even though a source is still loading', () => {
     const { result } = setup([loading('A')]);
+    advance(999);
     expect(result.current.loading).toBe(true);
-    await waitFor(() => expect(result.current.loading).toBe(false));
+    advance(1);
+    expect(result.current.loading).toBe(false);
   });
 
-  it('gives each new round of loading its own timeout', async () => {
+  it('gives each new round of loading its own timeout', () => {
     const { result, rerender } = setup([loading('A')]);
-    await waitFor(() => expect(result.current.loading).toBe(false));
+    advance(1000);
+    expect(result.current.loading).toBe(false);
     rerender({ sources: [loaded('A')] });
     rerender({ sources: [loaded('A'), loading('B')] });
     expect(result.current.loading).toBe(true);
-    await waitFor(() => expect(result.current.loading).toBe(false));
+    advance(999);
+    expect(result.current.loading).toBe(true);
+    advance(1);
+    expect(result.current.loading).toBe(false);
   });
 });
 
@@ -71,9 +84,11 @@ describe('useLoadStatus message', () => {
     expect(result.current.message).toBe(LOAD_FAILED_MESSAGE);
   });
 
-  it('says so when a source timed out without data', async () => {
+  it('says so when a source timed out without data', () => {
     const { result } = setup([loaded('A'), loading('B')]);
-    await waitFor(() => expect(result.current.message).toBe(LOAD_FAILED_MESSAGE));
+    expect(result.current.message).toBeNull();
+    advance(1000);
+    expect(result.current.message).toBe(LOAD_FAILED_MESSAGE);
     expect(result.current.loading).toBe(false);
   });
 
@@ -83,33 +98,38 @@ describe('useLoadStatus message', () => {
     expect(result.current.message).toBeNull();
   });
 
-  it('clears the message after the message time', async () => {
-    const { result, rerender } = setup([loading('A')], { timeoutMs: 5000, messageMs: 60 });
+  it('clears the message after the message time', () => {
+    const { result, rerender } = setup([loading('A')], { timeoutMs: 5000, messageMs: 6000 });
     rerender({ sources: [failed('A')] });
     expect(result.current.message).toBe(LOAD_FAILED_MESSAGE);
-    await waitFor(() => expect(result.current.message).toBeNull());
-  });
-
-  it('does not repeat the message for the same failed sources on the next load', async () => {
-    const { result, rerender } = setup([loading('A')], { timeoutMs: 5000, messageMs: 40 });
-    rerender({ sources: [failed('A')] });
-    await waitFor(() => expect(result.current.message).toBeNull());
-
-    rerender({ sources: [loading('A', { status: 'error' })] });
-    rerender({ sources: [failed('A')] });
-    await act(() => pause(30));
+    advance(5999);
+    expect(result.current.message).toBe(LOAD_FAILED_MESSAGE);
+    advance(1);
     expect(result.current.message).toBeNull();
   });
 
-  it('says it again for a different failure, and again after the failure cleared', async () => {
+  it('does not repeat the message for the same failed sources on the next load', () => {
+    const { result, rerender } = setup([loading('A')], { timeoutMs: 5000, messageMs: 40 });
+    rerender({ sources: [failed('A')] });
+    advance(40);
+    expect(result.current.message).toBeNull();
+
+    rerender({ sources: [loading('A', { status: 'error' })] });
+    rerender({ sources: [failed('A')] });
+    expect(result.current.message).toBeNull();
+  });
+
+  it('says it again for a different failure, and again after the failure cleared', () => {
     const { result, rerender } = setup([loading('A'), loading('B')], { timeoutMs: 5000, messageMs: 40 });
     rerender({ sources: [failed('A'), loaded('B')] });
-    await waitFor(() => expect(result.current.message).toBeNull());
+    advance(40);
+    expect(result.current.message).toBeNull();
 
     rerender({ sources: [loading('A'), loaded('B')] });
     rerender({ sources: [failed('A'), failed('B')] });
     expect(result.current.message).toBe(LOAD_FAILED_MESSAGE);
-    await waitFor(() => expect(result.current.message).toBeNull());
+    advance(40);
+    expect(result.current.message).toBeNull();
 
     rerender({ sources: [loaded('A'), loaded('B')] });
     rerender({ sources: [failed('A'), loaded('B')] });
