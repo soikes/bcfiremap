@@ -9,6 +9,8 @@ import { victoriaCollector } from "./victoria";
 import { metchosinCollector } from "./metchosin";
 import { langfordCollector } from "./langford";
 import { sookeCollector } from "./sooke";
+import { highlandsCollector } from "./highlands";
+import { northSaanichCollector } from "./northSaanich";
 import { centralSaanichCollector } from "./centralSaanich";
 import { colwoodCollector } from "./colwood";
 import { viewRoyalCollector } from "./viewRoyal";
@@ -162,9 +164,23 @@ describe("what each municipality permits through the year", () => {
     ]);
   });
 
-  it("Langford allows open burning by permit only in November and from March 15 to April 15", async () => {
+  it("Langford allows campfires by permit all year and open burning by permit only in November and from March 15 to April 15", async () => {
     expect(await calendar(langfordCollector, "Langford")).toEqual([
+      ["langford:campfires", "campfire", [B, B, B, B, B, B, B]],
       ["langford:open-fires", "open-burning", [P, B, P, P, P, P, B]],
+    ]);
+  });
+
+  it("Highlands requires a permit for every open fire all year", async () => {
+    expect(await calendar(highlandsCollector, "Highlands")).toEqual([
+      ["highlands:open-fires", "all-fires", [B, B, B, B, B, B, B]],
+    ]);
+  });
+
+  it("North Saanich requires a permit for appliances all year and for open burning from November to mid-May", async () => {
+    expect(await calendar(northSaanichCollector, "North Saanich")).toEqual([
+      ["north-saanich:campfires", "campfire", [B, B, B, B, B, B, B]],
+      ["north-saanich:open-burning", "open-burning", [B, B, B, P, P, P, B]],
     ]);
   });
 

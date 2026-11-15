@@ -105,3 +105,17 @@ export const SOOKE_AUTHORITY: Authority = {
   kind: 'municipality',
   level: 'municipal',
 };
+
+export const HIGHLANDS_AUTHORITY: Authority = {
+  id: 'highlands',
+  name: 'District of Highlands',
+  kind: 'municipality',
+  level: 'municipal',
+};
+
+export const NORTH_SAANICH_AUTHORITY: Authority = {
+  id: 'north-saanich',
+  name: 'District of North Saanich',
+  kind: 'municipality',
+  level: 'municipal',
+};

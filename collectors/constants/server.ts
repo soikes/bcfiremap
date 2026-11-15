@@ -10,6 +10,8 @@ import { metchosinCollector } from '../metchosin';
 import { centralSaanichCollector } from '../centralSaanich';
 import { langfordCollector } from '../langford';
 import { sookeCollector } from '../sooke';
+import { highlandsCollector } from '../highlands';
+import { northSaanichCollector } from '../northSaanich';
 
 export const SERVER_COLLECTORS: Collector[] = [victoriaCollector, oakBayCollector, saanichCollector, esquimaltCollector, sidneyCollector,
-  centralSaanichCollector, colwoodCollector, langfordCollector, metchosinCollector, sookeCollector, viewRoyalCollector];
+  centralSaanichCollector, colwoodCollector, highlandsCollector, langfordCollector, metchosinCollector, northSaanichCollector, sookeCollector, viewRoyalCollector];

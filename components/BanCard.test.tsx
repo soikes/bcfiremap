@@ -37,8 +37,8 @@ describe('BanCard', () => {
 
   it.each([
     ['prohibited', 'Prohibited', '✕'],
-    ['by-permit-only', 'By permit only', '!'],
-    ['allowed-with-conditions', 'Allowed with conditions', '✓*'],
+    ['by-permit-only', 'By permit only', '✎'],
+    ['allowed-with-conditions', 'Allowed with conditions', '!'],
     ['allowed', 'Allowed', '✓'],
   ] as const)('says %s with its label and icon, coloured to match', (permission, label, icon) => {
     const { container } = render(<BanCard ban={makeBan({ otherwise: permission })} />);
