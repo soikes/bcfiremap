@@ -50,7 +50,7 @@ export function standingBanCollector(config: StandingBanConfig): Collector {
     name: municipalityName,
     coverage: `The standing year-round open fire prohibition inside the ${municipalityName} boundary.`,
     attribution: `${municipalityName} fire rules; boundary contains information licensed under the Open Government Licence – British Columbia.`,
-    refetchIntervalMs: BigInt(24 * 60 * 60 * 1000 * 30),
+    refetchIntervalMs: 24 * 60 * 60 * 1000 * 30,
     collect: async (signal) => {
       const [area] = await fetchAreas(
         "municipality",

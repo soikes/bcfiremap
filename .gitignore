@@ -20,3 +20,6 @@ mise.local.toml
 .expo/
 /ios
 /android
+
+# local ban cache
+data/

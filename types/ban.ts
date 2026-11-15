@@ -22,6 +22,4 @@ export interface FireBan {
   authorityId?: string;
   applicability?: Applicability;
   geometry: Polygon | MultiPolygon;
-  lastFetched?: number;
-  fetchEvery?: number;
 }

@@ -1,24 +1,35 @@
+import { Low } from 'lowdb';
+import { JSONFile } from 'lowdb/node';
+import { mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { BansResponse, LoadStatus } from '../types/api';
 import { FireBan } from '../types/ban';
 import { Collector } from '../types/collector';
 import { validBans } from '../utils/bans';
 import { logger } from '../utils/logger';
 
-interface Entry {
+/** What is kept on disk for one source. */
+interface StoredSource {
   bans: FireBan[];
   status: LoadStatus;
-  hasData: boolean;
-  fetching: boolean;
-  retrying: boolean;
   updatedAt: number;
+  attemptedAt: number;
+}
+
+interface DbData {
+  sources: Record<string, StoredSource>;
 }
 
 interface Options {
   retries?: number;
   retryDelayMs?: (attempt: number) => number;
+  dbPath?: string;
+  forceFetch?: boolean;
 }
 
-const EMPTY: Entry = { bans: [], status: 'pending', hasData: false, fetching: false, retrying: false, updatedAt: 0 };
+const DEFAULT_DB_PATH = 'data/bans.json';
+const FAILED_RETRY_MS = 10 * 60 * 1000;
+const MAX_TIMEOUT_MS = 2 ** 31 - 1;
 
 /** Delay before retry number `attempt` (from 0), doubling from 1 s up to 30 s. */
 const backoff = (attempt: number) => Math.min(1000 * 2 ** attempt, 30000);
@@ -42,55 +53,117 @@ async function withRetry<T>(
   }
 }
 
-/** Holds the latest bans from each collector and refreshes them on a schedule, keeping the last good data when a refresh fails. */
-export function createBanStore(collectors: Collector[], { retries = 3, retryDelayMs = backoff }: Options = {}) {
-  const entries = new Map<string, Entry>(collectors.map(collector => [collector.id, EMPTY]));
+/** Opens the JSON file, starting empty when it is missing, empty, corrupt or in an older shape. */
+async function loadDb(path: string): Promise<Low<DbData>> {
+  mkdirSync(dirname(path), { recursive: true });
+  const db = new Low<DbData>(new JSONFile<DbData>(path), { sources: {} });
+  try {
+    await db.read();
+  } catch (error) {
+    logger.error('[banStore] ignoring unreadable cache file', path, error);
+  }
+  if (typeof db.data?.sources !== 'object' || db.data.sources === null) db.data = { sources: {} };
+  return db;
+}
 
-  /** Changes some fields of a collector's entry, keeping the rest. */
-  const update = (id: string, changes: Partial<Entry>) => entries.set(id, { ...(entries.get(id) ?? EMPTY), ...changes });
+/** Milliseconds until a source is due again, 0 if it is due now. */
+function msUntilDue(stored: StoredSource | undefined, intervalMs: number, now: number): number {
+  if (!stored || stored.attemptedAt <= 0) return 0;
+  const every = stored.status === 'success' ? intervalMs : Math.min(intervalMs, FAILED_RETRY_MS);
+  return Math.max(0, stored.attemptedAt + every - now);
+}
 
-  /** Runs one collector and records its bans, or marks it failed while keeping its previous bans; flags it as fetching while it runs and retrying between attempts. */
-  async function refresh(collector: Collector): Promise<void> {
-    const markRetrying = () => update(collector.id, { retrying: true });
-    update(collector.id, { fetching: true });
+/** Holds each source's bans on disk and refreshes them on their own schedules, keeping the last good bans when a refresh fails. */
+export async function createBanStore(
+  collectors: Collector[],
+  { retries = 3, retryDelayMs = backoff, dbPath, forceFetch = process.env.FORCE_FETCH === 'true' }: Options = {},
+) {
+  const db = await loadDb(dbPath ?? process.env.BANS_DB_PATH ?? DEFAULT_DB_PATH);
+  const sources = db.data.sources;
+  const live = new Map<string, { fetching: boolean; retrying: boolean }>();
+  const timers = new Set<ReturnType<typeof setTimeout>>();
+  let stopped = false;
+
+  /** Drops stored bans that fail validation, so an old or edited file can't put bad bans on the map. */
+  for (const collector of collectors) {
+    const stored = sources[collector.id];
+    if (!stored) continue;
     try {
-      const bans = validBans(await withRetry(() => collector.collect(), retries, retryDelayMs, markRetrying), collector.id);
-      entries.set(collector.id, { bans, status: 'success', hasData: true, fetching: false, retrying: false, updatedAt: Date.now() });
+      stored.bans = validBans(stored.bans, collector.id);
+    } catch {
+      delete sources[collector.id];
+    }
+  }
+  logger.log('[banStore] loaded from disk', Object.fromEntries(Object.entries(sources).map(([id, s]) => [id, s.bans.length])));
+
+  /** Runs one collector with retries and stores its bans, or marks it failed while keeping its previous bans. */
+  async function refresh(collector: Collector): Promise<void> {
+    const setLive = (changes: Partial<{ fetching: boolean; retrying: boolean }>) =>
+      live.set(collector.id, { fetching: false, retrying: false, ...live.get(collector.id), ...changes });
+    setLive({ fetching: true, retrying: false });
+    const now = Date.now();
+    const previous = sources[collector.id];
+    try {
+      const bans = validBans(await withRetry(() => collector.collect(), retries, retryDelayMs, () => setLive({ retrying: true })), collector.id);
+      sources[collector.id] = { bans, status: 'success', updatedAt: now, attemptedAt: now };
       logger.log(`[banStore] ${collector.id} refreshed`, bans.length, 'bans');
     } catch (error) {
-      update(collector.id, { status: 'error', fetching: false, retrying: false });
+      sources[collector.id] = { bans: previous?.bans ?? [], status: 'error', updatedAt: previous?.updatedAt ?? 0, attemptedAt: now };
       logger.error(`[banStore] ${collector.id} refresh failed`, error);
+    }
+    setLive({ fetching: false, retrying: false });
+    try {
+      await db.write();
+    } catch (error) {
+      logger.error('[banStore] could not write the cache file', error);
     }
   }
 
-  /** Refreshes a collector now, then again `refetchIntervalMs` after each run finishes. */
+  /** Waits until the collector is due (re-arming in chunks, since timers cap at about 24 days), refreshes it, and repeats. */
   function schedule(collector: Collector) {
-    const run = async () => {
-      await refresh(collector);
-      setTimeout(run, collector.refetchIntervalMs);
+    const arm = () => {
+      if (stopped) return;
+      const wait = msUntilDue(sources[collector.id], collector.refetchIntervalMs, Date.now());
+      const timer = setTimeout(async () => {
+        timers.delete(timer);
+        if (msUntilDue(sources[collector.id], collector.refetchIntervalMs, Date.now()) > 0) return arm();
+        await refresh(collector);
+        arm();
+      }, Math.min(wait, MAX_TIMEOUT_MS));
+      timers.add(timer);
+      logger.log(`[banStore] ${collector.id} next refresh in`, Math.round(wait / 1000), 's');
     };
-    void run();
+    arm();
   }
 
-  /** Starts the refresh loop of every collector. */
-  const start = () => collectors.forEach(schedule);
+  /** Starts every collector's schedule, fetching only the sources that are due (all of them with FORCE_FETCH); returns a function that stops it. */
+  function start(): () => void {
+    if (forceFetch) collectors.forEach(c => delete sources[c.id]);
+    collectors.forEach(schedule);
+    return () => {
+      stopped = true;
+      timers.forEach(clearTimeout);
+    };
+  }
 
-  /** Returns the bans of every collector merged, plus the status of each source. */
+  /** Returns the bans of every collector in collector order, plus the status of each source. */
   function snapshot(): BansResponse {
-    const states = collectors.map(collector => ({ collector, entry: entries.get(collector.id) ?? EMPTY }));
     return {
-      bans: states.flatMap(({ entry }) => entry.bans),
-      sources: states.map(({ collector, entry }) => ({
-        id: collector.id,
-        name: collector.name,
-        coverage: collector.coverage,
-        attribution: collector.attribution,
-        status: entry.status,
-        hasData: entry.hasData,
-        fetching: entry.fetching,
-        retrying: entry.retrying,
-        updatedAt: entry.updatedAt,
-      })),
+      bans: collectors.flatMap(c => sources[c.id]?.bans ?? []),
+      sources: collectors.map(c => {
+        const stored = sources[c.id];
+        return {
+          id: c.id,
+          name: c.name,
+          coverage: c.coverage,
+          attribution: c.attribution,
+          status: stored?.status ?? 'pending',
+          hasData: (stored?.updatedAt ?? 0) > 0,
+          fetching: live.get(c.id)?.fetching ?? false,
+          retrying: live.get(c.id)?.retrying ?? false,
+          updatedAt: stored?.updatedAt ?? 0,
+        };
+      }),
     };
   }
 

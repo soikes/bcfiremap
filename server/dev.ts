@@ -15,9 +15,11 @@ const fontRoutes = () =>
     ]),
   );
 
+const routes = await apiRoutes(SERVER_COLLECTORS);
+
 const server = Bun.serve({
   port: DEV_PORT,
-  routes: { '/': index, ...fontRoutes(), ...apiRoutes(SERVER_COLLECTORS) },
+  routes: { '/': index, ...fontRoutes(), ...routes },
   development: { hmr: true, console: true },
 });
 
