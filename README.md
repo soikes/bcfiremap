@@ -8,22 +8,22 @@ BC Fire Map gathers fire bans and restrictions from those jurisdictions and laye
 
 Each rule is about one activity (campfires, beach fires, backyard burning, and so on) in one area, and shows what is allowed there today:
 
-| | Meaning |
-|---|---|
-| ✕ **Prohibited** (red) | Not allowed |
-| ✎ **By permit only** (yellow) | Allowed only with a permit |
+|                                        | Meaning                                     |
+| -------------------------------------- | ------------------------------------------- |
+| ✕ **Prohibited** (red)                 | Not allowed                                 |
+| ✎ **By permit only** (yellow)          | Allowed only with a permit                  |
 | ! **Allowed with conditions** (yellow) | Allowed if you follow the stated conditions |
-| ✓ **Allowed** (green) | No restriction from this jurisdiction |
+| ✓ **Allowed** (green)                  | No restriction from this jurisdiction       |
 
 Where rules overlap, the map shows only the strictest one. Tap a spot to see the full list, with each rule's details and a link to its source.
 
 ## Where the data comes from
 
 - **Province:** BC Wildfire Service bans and prohibitions, fetched live by your browser.
-- **Municipalities:** standing local fire rules (year-round bans, burning seasons, permit requirements) for the municipalities of the Capital Regional District. These are written by hand from each municipality's published bylaws and fire pages, and drawn over its official boundary.
+- **Municipalities:** standing local fire rules (year-round bans, burning seasons, permit requirements) for BC municipalities and regions. These are written by hand from each municipality's published bylaws and fire pages, and drawn over its official boundary.
 - **Basemap, boundaries and place search:** OpenFreeMap, BC administrative boundaries and OpenStreetMap's Nominatim.
 
-Rules change, and this map can be wrong or out of date. Check with your local fire department or the BC Wildfire Service before lighting a fire.
+Rules change, and although this map attempts to keep itself up to date, it can be wrong or out of date. Check with your local fire department or the BC Wildfire Service before lighting a fire.
 
 ## Run it locally
 

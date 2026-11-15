@@ -7,6 +7,8 @@
 
 .location-search-form {
   display: flex;
+  box-sizing: border-box;
+  min-height: var(--search-bar-height, 0);
   gap: 6px;
   padding: 6px;
   border-radius: 10px;

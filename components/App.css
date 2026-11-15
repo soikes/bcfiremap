@@ -4,6 +4,7 @@
 }
 
 .app-controls {
+  --search-bar-height: 48px;
   position: absolute;
   top: 12px;
   left: 12px;
