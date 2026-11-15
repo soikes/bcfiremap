@@ -5,6 +5,7 @@
 
 .app-controls {
   --search-bar-height: 48px;
+  --spinner-size: 24px;
   position: absolute;
   top: 12px;
   left: 12px;
@@ -21,8 +22,24 @@
   pointer-events: auto;
 }
 
+.app:has(.ban-panel) .disclaimer {
+  display: none;
+}
+
 .app-controls-main {
   flex: 1;
   min-width: 0;
   max-width: 440px;
+}
+
+@media (max-width: 767px) {
+  .app-controls {
+    justify-content: center;
+  }
+
+  .app-controls::before {
+    content: '';
+    flex: none;
+    width: var(--spinner-size);
+  }
 }

@@ -1,6 +1,5 @@
 .disclaimer {
   position: absolute;
-  bottom: 38px;
   left: 50%;
   z-index: 1;
   box-sizing: border-box;
@@ -19,8 +18,6 @@
   pointer-events: none;
 }
 
-@media (max-width: 640px) {
-  .disclaimer {
-    bottom: 96px;
-  }
+.disclaimer-beside-button {
+  max-width: min(480px, calc(100% - 88px));
 }
