@@ -16,7 +16,7 @@ describe('permissionColor', () => {
 
   it('uses red for prohibited, yellow for by permit only and allowed with conditions, and green for allowed', () => {
     expect(PERMISSION_STYLE.prohibited.stroke).toMatch(/^rgba\(220,50,50/);
-    expect(PERMISSION_STYLE['by-permit-only'].stroke).toMatch(/^rgba\(234,179,8/);
+    expect(PERMISSION_STYLE['by-permit-only'].stroke).toMatch(/^rgba\(245,190,10/);
     expect(PERMISSION_STYLE['allowed-with-conditions']).toMatchObject({
       fill: PERMISSION_STYLE['by-permit-only'].fill,
       stroke: PERMISSION_STYLE['by-permit-only'].stroke,

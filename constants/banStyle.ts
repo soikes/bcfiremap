@@ -4,8 +4,8 @@ import { Activity, BanLevel, Permission } from '../types/ban';
 /** How each permission looks: its label and icon, its map fill and outline, and the solid colour of its card text and side bar. By permit only and allowed with conditions share one yellow. */
 export const PERMISSION_STYLE: Record<Permission, { label: string; icon: string; fill: string; stroke: string; solid: string }> = {
   prohibited:                { label: 'Prohibited',              icon: '✕',  fill: 'rgba(220,50,50,0.08)',  stroke: 'rgba(220,50,50,0.65)',  solid: '#dc3232' },
-  'by-permit-only':          { label: 'By permit only',          icon: '✎',  fill: 'rgba(234,179,8,0.12)',  stroke: 'rgba(234,179,8,0.85)',  solid: '#a16207' },
-  'allowed-with-conditions': { label: 'Allowed with conditions', icon: '!' , fill: 'rgba(234,179,8,0.12)',  stroke: 'rgba(234,179,8,0.85)',  solid: '#a16207' },
+  'by-permit-only':          { label: 'By permit only',          icon: '✎',  fill: 'rgba(250,204,21,0.15)',  stroke: 'rgba(245,190,10,0.9)',   solid: '#ca8a04' },
+  'allowed-with-conditions': { label: 'Allowed with conditions', icon: '!' , fill: 'rgba(250,204,21,0.15)',  stroke: 'rgba(245,190,10,0.9)',   solid: '#ca8a04' },
   allowed:                   { label: 'Allowed',                 icon: '✓',  fill: 'rgba(46,125,50,0.08)',  stroke: 'rgba(46,125,50,0.65)',  solid: '#2e7d32' },
 };
 
