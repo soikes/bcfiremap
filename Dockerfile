@@ -10,6 +10,9 @@ RUN bun run build
 FROM oven/bun:1.3.10-slim AS bun
 
 FROM nginxinc/nginx-unprivileged:stable
+USER root
+ENV BANS_DB_PATH=/data/bans.json
+RUN mkdir -p /data && chown 101:101 /data
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
 COPY deploy/security-headers.conf /etc/nginx/snippets/security-headers.conf
