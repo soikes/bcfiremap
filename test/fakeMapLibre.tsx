@@ -56,10 +56,24 @@ export function clickMap(latitude: number, longitude: number) {
   act(() => onClick({ lngLat: { lat: latitude, lng: longitude } }));
 }
 
-mock.module('react-map-gl/maplibre', () => ({ default: FakeMap, Source: FakeSource, Layer: FakeLayer }));
+/** The camera moves the fake map was asked to make: `flyTo` options, and `fitBounds` bounds with their options. */
+export const camera = { flyTo: [] as unknown[], fitBounds: [] as { bounds: unknown; options: unknown }[] };
+
+const fakeMapRef = {
+  flyTo: (options: unknown) => camera.flyTo.push(options),
+  fitBounds: (bounds: unknown, options: unknown) => camera.fitBounds.push({ bounds, options }),
+  getContainer: () => ({ clientHeight: 800 }),
+};
+
+/** Stand-in for react-map-gl's useMap: always returns the one fake map. */
+const useMap = () => ({ current: fakeMapRef });
+
+mock.module('react-map-gl/maplibre', () => ({ default: FakeMap, Source: FakeSource, Layer: FakeLayer, useMap }));
 
 afterEach(() => {
   rendered.map = undefined;
   rendered.sources.clear();
   rendered.layers.clear();
+  camera.flyTo.length = 0;
+  camera.fitBounds.length = 0;
 });

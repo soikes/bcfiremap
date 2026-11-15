@@ -10,6 +10,8 @@ import { BanPolygons } from './BanPolygons';
 import { BaseMap } from './BaseMap';
 import { ErrorBoundary } from './ErrorBoundary';
 import { FireZones } from './FireZones';
+import { LocationSearch } from './LocationSearch';
+import { MapFocus } from './MapFocus';
 import { SelectedPin } from './SelectedPin';
 import { SourceBanner } from './SourceBanner';
 
@@ -31,7 +33,14 @@ const queryClient = new QueryClient({
 function MapScreen() {
   const { bans, sources } = useBans();
   const [selected, setSelected] = useState<LatLng | null>(null);
+  const [focus, setFocus] = useState<LatLng | null>(null);
   const bansHere = useFireBans(bans, selected);
+
+  /** Selects a searched or detected location and asks the map to move to it; the copy makes searching the same place twice move the map twice. */
+  function locate(location: LatLng) {
+    setSelected(location);
+    setFocus({ ...location });
+  }
 
   return (
     <div className="app">
@@ -41,7 +50,11 @@ function MapScreen() {
           <BanPolygons bans={bans} />
         </ErrorBoundary>
         {selected && <SelectedPin coordinate={selected} />}
+        <ErrorBoundary name="MapFocus" fallback={null} resetKey={focus}>
+          <MapFocus target={focus} bans={bansHere} />
+        </ErrorBoundary>
       </BaseMap>
+      <LocationSearch onLocate={locate} />
       <SourceBanner sources={sources} />
       {selected && (
         <ErrorBoundary name="BanPanel" fallback={<BanPanelFallback />} resetKey={selected}>

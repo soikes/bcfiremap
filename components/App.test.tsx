@@ -1,10 +1,11 @@
 import { QueryClient } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, mock } from 'bun:test';
 import { PROVINCIAL_URL, provincialCollector } from '../collectors/provincial';
 import { BANS_API_PATH } from '../constants/api';
 import { BCWS_2022_FEED } from '../test/bcws2022';
-import { clickMap } from '../test/fakeMapLibre';
+import { camera, clickMap } from '../test/fakeMapLibre';
 
 /** A point inside the test feed's ban area, and one outside every ban. */
 const INSIDE = [49.5, -119.5] as const;
@@ -27,9 +28,10 @@ const hangs: Reply = () => new Promise(() => {});
 const SERVER_EMPTY = answers({ bans: [], sources: [] });
 const BCWS_FEED = answers(BCWS_2022_FEED);
 
-/** Answers each URL the app requests with the given reply, and anything else as unreachable. */
+/** Answers each URL the app requests (or each URL starting with a given one) with the given reply, and anything else as unreachable. */
 const route = (replies: Record<string, Reply>) => {
-  globalThis.fetch = mock(async (url: string) => (replies[url] ?? unreachable)()) as unknown as typeof fetch;
+  const reply = (url: string) => replies[url] ?? replies[Object.keys(replies).find(key => url.startsWith(key)) ?? ''] ?? unreachable;
+  globalThis.fetch = mock(async (url: string) => reply(url)()) as unknown as typeof fetch;
 };
 
 /** Renders the whole app with a query client that doesn't retry unless told to. */
@@ -89,6 +91,52 @@ describe('App when every source loads', () => {
 
     expect(screen.queryByText(/fire bans? (in effect|found)/)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Close' })).not.toBeInTheDocument();
+  });
+});
+
+describe('App location search', () => {
+  const SEARCH_URL = 'https://nominatim.openstreetmap.org/search';
+
+  it('selects a searched place, fits the map to the bans there and lists them', async () => {
+    route({
+      [PROVINCIAL_URL]: BCWS_FEED,
+      [BANS_API_PATH]: SERVER_EMPTY,
+      [SEARCH_URL]: answers([{ display_name: 'Test Town, BC', lat: String(INSIDE[0]), lon: String(INSIDE[1]) }]),
+    });
+    renderApp();
+    await waitFor(() => expect(bannerRows()).toEqual([]));
+
+    await userEvent.setup().type(screen.getByRole('searchbox'), 'Test Town{Enter}');
+
+    expect(await screen.findByText('6 fire bans in effect')).toBeInTheDocument();
+    expect(camera.fitBounds).toHaveLength(1);
+    expect(camera.flyTo).toEqual([]);
+  });
+
+  it('flies to a searched place that has no bans and shows no panel', async () => {
+    route({
+      [PROVINCIAL_URL]: BCWS_FEED,
+      [BANS_API_PATH]: SERVER_EMPTY,
+      [SEARCH_URL]: answers([{ display_name: 'Far North, BC', lat: String(OUTSIDE[0]), lon: String(OUTSIDE[1]) }]),
+    });
+    renderApp();
+    await waitFor(() => expect(bannerRows()).toEqual([]));
+
+    await userEvent.setup().type(screen.getByRole('searchbox'), 'Far North{Enter}');
+
+    await waitFor(() => expect(camera.flyTo).toHaveLength(1));
+    expect(screen.queryByRole('button', { name: 'Close' })).not.toBeInTheDocument();
+  });
+
+  it('does not move the map when the user taps it', async () => {
+    route({ [PROVINCIAL_URL]: BCWS_FEED, [BANS_API_PATH]: SERVER_EMPTY });
+    renderApp();
+    await waitFor(() => expect(bannerRows()).toEqual([]));
+
+    clickMap(...INSIDE);
+
+    expect(camera.fitBounds).toEqual([]);
+    expect(camera.flyTo).toEqual([]);
   });
 });
 
