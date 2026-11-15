@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 import { SHOW_FIRE_ZONES } from '../constants/map';
 import { useBans } from '../hooks/useBans';
+import { useLoadStatus } from '../hooks/useLoadStatus';
 import { useFireBans } from '../hooks/useFireBans';
 import { LatLng } from '../types/geo';
 import './App.css';
@@ -13,10 +14,12 @@ import { FireZones } from './FireZones';
 import { LocationSearch } from './LocationSearch';
 import { MapFocus } from './MapFocus';
 import { SelectedPin } from './SelectedPin';
-import { SourceBanner } from './SourceBanner';
+import { LoadSpinner } from './LoadSpinner';
+import { Toast } from './Toast';
 
 interface Props {
   client?: QueryClient;
+  loadTimeoutMs?: number;
 }
 
 const queryClient = new QueryClient({
@@ -30,8 +33,9 @@ const queryClient = new QueryClient({
 });
 
 /** Map screen: owns the selected location and composes the map layers, the source banner and the results panel. */
-function MapScreen() {
+function MapScreen({ loadTimeoutMs }: { loadTimeoutMs?: number }) {
   const { bans, sources } = useBans();
+  const { loading, message } = useLoadStatus(sources, { timeoutMs: loadTimeoutMs });
   const [selected, setSelected] = useState<LatLng | null>(null);
   const [focus, setFocus] = useState<LatLng | null>(null);
   const bansHere = useFireBans(bans, selected);
@@ -54,8 +58,13 @@ function MapScreen() {
           <MapFocus target={focus} bans={bansHere} />
         </ErrorBoundary>
       </BaseMap>
-      <LocationSearch onLocate={locate} />
-      <SourceBanner sources={sources} />
+      <div className="app-controls">
+        <div className="app-controls-main">
+          <LocationSearch onLocate={locate} />
+          {message ? <Toast message={message} /> : null}
+        </div>
+        <LoadSpinner active={loading} />
+      </div>
       {selected && (
         <ErrorBoundary name="BanPanel" fallback={<BanPanelFallback />} resetKey={selected}>
           <BanPanel bans={bansHere} sources={sources} onClose={() => setSelected(null)} />
@@ -66,10 +75,10 @@ function MapScreen() {
 }
 
 /** Root component: provides the data-fetching client to the map screen. */
-export default function App({ client = queryClient }: Props) {
+export default function App({ client = queryClient, loadTimeoutMs }: Props) {
   return (
     <QueryClientProvider client={client}>
-      <MapScreen />
+      <MapScreen loadTimeoutMs={loadTimeoutMs} />
     </QueryClientProvider>
   );
 }

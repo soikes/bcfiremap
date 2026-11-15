@@ -1,9 +1,10 @@
 import { QueryClient } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, mock } from 'bun:test';
 import { PROVINCIAL_URL, provincialCollector } from '../collectors/provincial';
 import { BANS_API_PATH } from '../constants/api';
+import { LOAD_FAILED_MESSAGE } from '../hooks/useLoadStatus';
 import { BCWS_2022_FEED } from '../test/bcws2022';
 import { camera, clickMap } from '../test/fakeMapLibre';
 
@@ -37,10 +38,10 @@ const route = (replies: Record<string, Reply>) => {
 /** Renders the whole app with a query client that doesn't retry unless told to. */
 const clients: QueryClient[] = [];
 
-const renderApp = (retry: { retry: number; retryDelay: number } | { retry: false } = { retry: false }) => {
+const renderApp = (retry: { retry: number; retryDelay: number } | { retry: false } = { retry: false }, loadTimeoutMs?: number) => {
   const client = new QueryClient({ defaultOptions: { queries: retry } });
   clients.push(client);
-  render(<App client={client} />);
+  render(<App client={client} loadTimeoutMs={loadTimeoutMs} />);
 };
 
 /** A reply that fails the first `failures` times and then answers with `body`. */
@@ -53,17 +54,17 @@ const failsThenAnswers = (failures: number, body: unknown): Reply => {
   };
 };
 
-/** The source banner, or null when it isn't shown. */
-const banner = () => screen.queryByRole('status', { hidden: true });
+/** True while the loading spinner is showing. */
+const spinning = () => screen.queryByRole('status', { name: 'Loading ban data' }) !== null;
 
-/** The source banner's rows as text, or an empty list when it isn't shown; waitFor checks compare these strings, because a failed check on a happy-dom element prints the whole element, which is slow enough to delay the app's timers. */
-const bannerRows = () => [...(banner()?.querySelectorAll('li') ?? [])].map(row => row.textContent);
+/** The text of the failed-load toast, or null when it isn't showing; waitFor checks compare these plain values, because a failed check on a happy-dom element prints the whole element, which is slow enough to delay the app's timers. */
+const toast = () => screen.queryByText(LOAD_FAILED_MESSAGE)?.textContent ?? null;
 
-/** The state class of each banner row, in order. */
-const bannerStates = () =>
-  [...(banner()?.querySelectorAll('li') ?? [])].map(row => row.className.replace('source-banner-row source-banner-', ''));
+/** Waits a moment so a check that something has not happened has had time to fail. */
+const pause = (ms = 200) => new Promise(resolve => setTimeout(resolve, ms));
 
 afterEach(async () => {
+  cleanup();
   await Promise.all(clients.map(client => client.cancelQueries()));
   clients.forEach(client => client.clear());
   clients.length = 0;
@@ -71,21 +72,22 @@ afterEach(async () => {
 });
 
 describe('App when every source loads', () => {
-  it('shows no banner once loaded, and lists the bans at a tapped point', async () => {
+  it('shows no spinner or toast once loaded, and lists the bans at a tapped point', async () => {
     route({ [PROVINCIAL_URL]: BCWS_FEED, [BANS_API_PATH]: SERVER_EMPTY });
     renderApp();
 
-    await waitFor(() => expect(bannerRows()).toEqual([]));
+    await waitFor(() => expect(spinning()).toBe(false));
     clickMap(...INSIDE);
 
+    expect(toast()).toBeNull();
     expect(screen.getByText('6 fire restrictions in effect')).toBeInTheDocument();
-    expect(screen.queryByText(/bans may be missing/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/bans may be missing\./)).not.toBeInTheDocument();
   });
 
   it('shows no panel at a point outside every ban area', async () => {
     route({ [PROVINCIAL_URL]: BCWS_FEED, [BANS_API_PATH]: SERVER_EMPTY });
     renderApp();
-    await waitFor(() => expect(bannerRows()).toEqual([]));
+    await waitFor(() => expect(spinning()).toBe(false));
 
     clickMap(...OUTSIDE);
 
@@ -104,7 +106,7 @@ describe('App location search', () => {
       [SEARCH_URL]: answers([{ display_name: 'Test Town, BC', lat: String(INSIDE[0]), lon: String(INSIDE[1]) }]),
     });
     renderApp();
-    await waitFor(() => expect(bannerRows()).toEqual([]));
+    await waitFor(() => expect(spinning()).toBe(false));
 
     await userEvent.setup().type(screen.getByRole('searchbox'), 'Test Town{Enter}');
 
@@ -120,7 +122,7 @@ describe('App location search', () => {
       [SEARCH_URL]: answers([{ display_name: 'Far North, BC', lat: String(OUTSIDE[0]), lon: String(OUTSIDE[1]) }]),
     });
     renderApp();
-    await waitFor(() => expect(bannerRows()).toEqual([]));
+    await waitFor(() => expect(spinning()).toBe(false));
 
     await userEvent.setup().type(screen.getByRole('searchbox'), 'Far North{Enter}');
 
@@ -131,7 +133,7 @@ describe('App location search', () => {
   it('does not move the map when the user taps it', async () => {
     route({ [PROVINCIAL_URL]: BCWS_FEED, [BANS_API_PATH]: SERVER_EMPTY });
     renderApp();
-    await waitFor(() => expect(bannerRows()).toEqual([]));
+    await waitFor(() => expect(spinning()).toBe(false));
 
     clickMap(...INSIDE);
 
@@ -141,21 +143,30 @@ describe('App location search', () => {
 });
 
 describe('App while sources are loading', () => {
-  it('names the sources whose requests are in flight in one row', async () => {
+  it('spins while requests are in flight, without a toast', async () => {
     route({ [PROVINCIAL_URL]: hangs, [BANS_API_PATH]: hangs });
     renderApp();
 
-    await waitFor(() =>
-      expect(bannerRows()).toEqual(['Loading ban data from BC Wildfire Service and BC Fire Bans server…']),
-    );
-    expect(bannerStates()).toEqual(['loading']);
+    await waitFor(() => expect(spinning()).toBe(true));
+    expect(toast()).toBeNull();
   });
 
-  it('removes a source\'s row once it answers', async () => {
+  it('keeps spinning while one source is still loading', async () => {
     route({ [PROVINCIAL_URL]: hangs, [BANS_API_PATH]: SERVER_EMPTY });
     renderApp();
 
-    await waitFor(() => expect(bannerRows()).toEqual(['Loading ban data from BC Wildfire Service…']));
+    await waitFor(() => expect(spinning()).toBe(true));
+    await pause();
+    expect(spinning()).toBe(true);
+    expect(toast()).toBeNull();
+  });
+
+  it('stops spinning once every source has answered', async () => {
+    route({ [PROVINCIAL_URL]: BCWS_FEED, [BANS_API_PATH]: SERVER_EMPTY });
+    renderApp();
+
+    await waitFor(() => expect(spinning()).toBe(false));
+    expect(toast()).toBeNull();
   });
 
   it('says in the panel that the data is loading', async () => {
@@ -168,15 +179,35 @@ describe('App while sources are loading', () => {
   });
 });
 
+describe('App when loading takes too long', () => {
+  it('stops spinning after the timeout and says some ban data did not load', async () => {
+    route({ [PROVINCIAL_URL]: hangs, [BANS_API_PATH]: hangs });
+    renderApp({ retry: false }, 150);
+    expect(spinning()).toBe(true);
+    expect(toast()).toBeNull();
+
+    await waitFor(() => expect(spinning()).toBe(false));
+    expect(toast()).toBe(LOAD_FAILED_MESSAGE);
+    expect(screen.getByTestId('map')).toBeInTheDocument();
+  });
+
+  it('does not time out sources that answered in time', async () => {
+    route({ [PROVINCIAL_URL]: BCWS_FEED, [BANS_API_PATH]: SERVER_EMPTY });
+    renderApp({ retry: false }, 150);
+
+    await waitFor(() => expect(spinning()).toBe(false));
+    await pause(300);
+    expect(toast()).toBeNull();
+  });
+});
+
 describe('App when a source fails', () => {
-  it('names the BC Wildfire Service in the banner, keeps the map, and warns in the panel', async () => {
+  it('shows the toast, keeps the map, and warns in the panel when the BC Wildfire Service fails', async () => {
     route({ [PROVINCIAL_URL]: unreachable, [BANS_API_PATH]: SERVER_EMPTY });
     renderApp();
 
-    await waitFor(() =>
-      expect(bannerRows()).toEqual(["⚠ Couldn't load BC Wildfire Service. Bans may be missing from the map."]),
-    );
-    expect(bannerStates()).toEqual(['failed']);
+    await waitFor(() => expect(toast()).toBe(LOAD_FAILED_MESSAGE));
+    expect(spinning()).toBe(false);
     expect(screen.getByTestId('map')).toBeInTheDocument();
 
     clickMap(...INSIDE);
@@ -186,13 +217,11 @@ describe('App when a source fails', () => {
     expect(screen.getByText('BC Wildfire Service: unavailable')).toBeInTheDocument();
   });
 
-  it('still shows the provincial bans when the server is down, with a warning', async () => {
+  it('still shows the provincial bans when the server is down, with the toast and a warning', async () => {
     route({ [PROVINCIAL_URL]: BCWS_FEED, [BANS_API_PATH]: unreachable });
     renderApp();
 
-    await waitFor(() =>
-      expect(bannerRows()).toEqual(["⚠ Couldn't load BC Fire Bans server. Bans may be missing from the map."]),
-    );
+    await waitFor(() => expect(toast()).toBe(LOAD_FAILED_MESSAGE));
 
     clickMap(...INSIDE);
 
@@ -204,29 +233,25 @@ describe('App when a source fails', () => {
     route({ [PROVINCIAL_URL]: answers({ error: { code: 500, message: 'Service unavailable' } }), [BANS_API_PATH]: SERVER_EMPTY });
     renderApp();
 
-    await waitFor(() =>
-      expect(bannerRows()).toEqual(["⚠ Couldn't load BC Wildfire Service. Bans may be missing from the map."]),
-    );
+    await waitFor(() => expect(toast()).toBe(LOAD_FAILED_MESSAGE));
   });
 
-  it('reports the failed source rather than the one still loading', async () => {
+  it('waits for the source that is still loading before showing the toast', async () => {
     route({ [PROVINCIAL_URL]: unreachable, [BANS_API_PATH]: hangs });
     renderApp();
 
-    await waitFor(() =>
-      expect(bannerRows()).toEqual(["⚠ Couldn't load BC Wildfire Service. Bans may be missing from the map."]),
-    );
+    await waitFor(() => expect(spinning()).toBe(true));
+    await pause();
+    expect(spinning()).toBe(true);
+    expect(toast()).toBeNull();
   });
-});
 
-describe('App when everything fails', () => {
-  it('falls back to the empty map and names both sources in one banner row', async () => {
+  it('shows one toast when everything fails, and falls back to the empty map', async () => {
     route({});
     renderApp();
 
-    await waitFor(() =>
-      expect(bannerRows()).toEqual(["⚠ Couldn't load BC Wildfire Service and BC Fire Bans server. Bans may be missing from the map."]),
-    );
+    await waitFor(() => expect(toast()).toBe(LOAD_FAILED_MESSAGE));
+    expect(screen.getAllByText(LOAD_FAILED_MESSAGE)).toHaveLength(1);
     expect(screen.getByTestId('map')).toBeInTheDocument();
 
     clickMap(...INSIDE);
@@ -238,15 +263,13 @@ describe('App when everything fails', () => {
     route({ [PROVINCIAL_URL]: answers('<html>Bad Gateway</html>'), [BANS_API_PATH]: answers({}) });
     renderApp();
 
-    await waitFor(() =>
-      expect(bannerRows()).toEqual(["⚠ Couldn't load BC Wildfire Service and BC Fire Bans server. Bans may be missing from the map."]),
-    );
+    await waitFor(() => expect(toast()).toBe(LOAD_FAILED_MESSAGE));
     expect(screen.getByTestId('map')).toBeInTheDocument();
   });
 });
 
 describe('App while a source is retried', () => {
-  it('updates one banner from loading to retrying to missing as the attempts fail', async () => {
+  it('keeps spinning through the retries and shows the toast when they run out', async () => {
     let calls = 0;
     const slowlyFails: Reply = async () => {
       calls += 1;
@@ -256,20 +279,22 @@ describe('App while a source is retried', () => {
     route({ [PROVINCIAL_URL]: slowlyFails, [BANS_API_PATH]: SERVER_EMPTY });
     renderApp({ retry: 1, retryDelay: 200 });
 
-    await waitFor(() => expect(bannerRows()).toEqual(['Loading ban data from BC Wildfire Service…']));
-    await waitFor(() => expect(bannerRows()).toEqual(["Couldn't load ban data from BC Wildfire Service. Retrying…"]));
-    await waitFor(() =>
-      expect(bannerRows()).toEqual(["⚠ Couldn't load BC Wildfire Service. Bans may be missing from the map."]),
-    );
+    await waitFor(() => expect(spinning()).toBe(true));
+    await pause(250);
+    expect(spinning()).toBe(true);
+    expect(toast()).toBeNull();
+
+    await waitFor(() => expect(toast()).toBe(LOAD_FAILED_MESSAGE));
+    expect(spinning()).toBe(false);
   });
 
-  it('removes the banner and shows the bans when the retry succeeds', async () => {
+  it('shows no toast and the bans when the retry succeeds', async () => {
     route({ [PROVINCIAL_URL]: failsThenAnswers(1, BCWS_2022_FEED), [BANS_API_PATH]: SERVER_EMPTY });
     renderApp({ retry: 1, retryDelay: 300 });
 
-    await waitFor(() => expect(bannerRows()).toEqual(["Couldn't load ban data from BC Wildfire Service. Retrying…"]));
-
-    await waitFor(() => expect(bannerRows()).toEqual([]));
+    await waitFor(() => expect(spinning()).toBe(true));
+    await waitFor(() => expect(spinning()).toBe(false));
+    expect(toast()).toBeNull();
     clickMap(...INSIDE);
     expect(screen.getByText('6 fire restrictions in effect')).toBeInTheDocument();
   });
@@ -277,28 +302,21 @@ describe('App while a source is retried', () => {
   it('says the source is being retried in the panel while the retry is pending', async () => {
     route({ [PROVINCIAL_URL]: unreachable, [BANS_API_PATH]: SERVER_EMPTY });
     renderApp({ retry: 1, retryDelay: 5000 });
-    await waitFor(() => expect(bannerRows()).toEqual(["Couldn't load ban data from BC Wildfire Service. Retrying…"]));
+    await waitFor(() => expect(spinning()).toBe(true));
 
     clickMap(...INSIDE);
 
+    expect(await screen.findByText("BC Wildfire Service: couldn't load, retrying…")).toBeInTheDocument();
     expect(screen.getByText('Loading ban data…')).toBeInTheDocument();
-    expect(screen.getByText("BC Wildfire Service: couldn't load, retrying…")).toBeInTheDocument();
   });
 
-  it('reports the source being retried rather than the one still loading', async () => {
-    route({ [PROVINCIAL_URL]: unreachable, [BANS_API_PATH]: hangs });
-    renderApp({ retry: 1, retryDelay: 5000 });
-
-    await waitFor(() =>
-      expect(bannerRows()).toEqual(["Couldn't load ban data from BC Wildfire Service. Retrying…"]),
-    );
-    expect(bannerStates()).toEqual(['retrying']);
-  });
-
-  it('names the server in the banner while a request to it is retried', async () => {
+  it('keeps spinning while a request to the server is retried', async () => {
     route({ [PROVINCIAL_URL]: BCWS_FEED, [BANS_API_PATH]: unreachable });
     renderApp({ retry: 1, retryDelay: 5000 });
 
-    await waitFor(() => expect(bannerRows()).toEqual(["Couldn't load ban data from BC Fire Bans server. Retrying…"]));
+    await waitFor(() => expect(spinning()).toBe(true));
+    await pause();
+    expect(spinning()).toBe(true);
+    expect(toast()).toBeNull();
   });
 });

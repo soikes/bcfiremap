@@ -1,10 +1,7 @@
 .location-search {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  z-index: 4;
   box-sizing: border-box;
-  width: calc(100% - 24px);
+  flex: 1;
+  min-width: 0;
   max-width: 440px;
 }
 
@@ -43,17 +40,6 @@
 .location-search-button:disabled {
   background: #9db7d9;
   cursor: default;
-}
-
-.location-search-message {
-  margin: 6px 0 0;
-  padding: 6px 10px;
-  border-radius: 8px;
-  background: #fff6d6;
-  color: #5c4400;
-  font-size: 12px;
-  line-height: 17px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
 }
 
 .location-search-results {

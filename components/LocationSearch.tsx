@@ -1,8 +1,10 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
+import { useTimedMessage } from '../hooks/useTimedMessage';
 import { LatLng, Place } from '../types/geo';
 import { searchPlaces } from '../utils/geocode';
 import { currentLocation } from '../utils/geolocation';
 import { logger } from '../utils/logger';
+import { Toast } from './Toast';
 import './LocationSearch.css';
 
 interface Props {
@@ -16,17 +18,11 @@ const DEFAULT_MESSAGE_MS = 6000;
 export function LocationSearch({ onLocate, messageMs = DEFAULT_MESSAGE_MS }: Props) {
   const [query, setQuery] = useState('');
   const [places, setPlaces] = useState<Place[]>([]);
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useTimedMessage(messageMs);
   const [busy, setBusy] = useState(false);
   const controller = useRef<AbortController | null>(null);
 
   useEffect(() => () => controller.current?.abort(), []);
-
-  useEffect(() => {
-    if (!message) return;
-    const timer = setTimeout(() => setMessage(null), messageMs);
-    return () => clearTimeout(timer);
-  }, [message, messageMs]);
 
   /** Clears the results and message, then hands the location on. */
   function choose(location: LatLng) {
@@ -91,11 +87,7 @@ export function LocationSearch({ onLocate, messageMs = DEFAULT_MESSAGE_MS }: Pro
           My location
         </button>
       </form>
-      {message ? (
-        <p className="location-search-message" role="status">
-          {message}
-        </p>
-      ) : null}
+      {message ? <Toast message={message} /> : null}
       {places.length > 0 ? (
         <ul className="location-search-results" aria-label="Search results">
           {places.map(place => (
