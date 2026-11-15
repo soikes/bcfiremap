@@ -9,7 +9,7 @@ interface Props {
   bans: FireBan[];
 }
 
-/** Draws each ban's jurisdiction as one source with a fill layer and a line layer, red where the activity is prohibited, amber where it is by permit only and green where it is allowed. */
+/** Draws each ban's jurisdiction as one source with a fill layer and a line layer, red where the activity is prohibited, yellow where it is by permit only or allowed with conditions and green where it is allowed. */
 export function BanPolygons({ bans }: Props) {
   const data = useMemo(() => {
     const collection = bansToFeatureCollection(bans);

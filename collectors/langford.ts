@@ -11,7 +11,7 @@ export const langfordCollector = standingBanCollector({
     "It is not permitted at other times. " +
     "Campfires need a free permit and are not issued when the wildfire risk is extreme. " +
     "BC Wildfire Service orders do not apply inside the city.",
-  rulesUrl: "https://langford.ca/?p=6391",
+  rulesUrl: "https://langford.ca/residents/public-health-and-safety/fire-rescue/",
   periods: [
     { permission: "by-permit-only", annual: { start: "11-01", end: "11-30" } },
     { permission: "by-permit-only", annual: { start: "03-15", end: "04-15" } },

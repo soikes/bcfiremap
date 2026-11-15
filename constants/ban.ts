@@ -13,4 +13,4 @@ export const ACTIVITIES = [
 ] as const;
 
 /** Every permission an activity can have, strictest first. */
-export const PERMISSIONS = ['prohibited', 'by-permit-only', 'allowed'] as const;
+export const PERMISSIONS = ['prohibited', 'by-permit-only', 'allowed-with-conditions', 'allowed'] as const;

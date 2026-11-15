@@ -5,12 +5,13 @@ export const centralSaanichCollector = standingBanCollector({
   authority: CENTRAL_SANICH_AUTHORITY,
   municipalityName: "District of Central Saanich",
   abmsName: "Central Saanich",
-  activity: "open-burning",
+  key: "campfires",
+  activity: "campfire",
+  otherwise: "allowed",
   description:
-    "The District of Central Saanich allows open burning only from October 16 to May 15 (Open Burning Regulation Bylaw 2058), and only with a permit except for recreational campfires. " +
-    "It is not permitted from May 16 to October 15. " +
+    "The District of Central Saanich allows recreational fires all year without a permit (Open Burning Regulation Bylaw 2058), unless a fire ban is in place. " +
+    "A recreational fire is a campfire no larger than 0.5 metres high and wide, burning clean firewood, at least 3 metres from any building, fence, property line, tree or other combustible. " +
     "Beach fires are not allowed at Island View Beach. " +
-    "BC Wildfire Service orders do not apply inside the district.",
+    "Yard waste burning is a separate matter: it needs a permit and is allowed only from October 16 to May 15.",
   rulesUrl: "https://www.centralsaanich.ca/burning",
-  periods: [{ permission: "by-permit-only", annual: { start: "10-16", end: "05-15" } }],
 });

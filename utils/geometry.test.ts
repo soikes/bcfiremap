@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import type { MultiPolygon, Polygon } from 'geojson';
 import { makeAllowedBan, makeBan, makePermitBan } from '../test/fixtures';
+import { FireBan } from '../types/ban';
 import { bansToFeatureCollection, pointInGeometry, pointInPolygon, pointToFeatureCollection } from './geometry';
 
 const point = (latitude: number, longitude: number) => ({ latitude, longitude });
@@ -86,32 +87,87 @@ describe('pointInGeometry', () => {
 });
 
 describe('bansToFeatureCollection', () => {
-  it('makes one feature per ban that keeps the ban geometry', () => {
-    const ban = makeBan();
-    const [feature] = bansToFeatureCollection([ban]).features;
-    expect(feature.geometry).toBe(ban.geometry);
+  const square = (west: number, south: number, size: number) => ({
+    type: 'Polygon' as const,
+    coordinates: [[[west, south], [west + size, south], [west + size, south + size], [west, south + size], [west, south]]],
   });
+  const at = (longitude: number, latitude: number) => ({ latitude, longitude });
+  /** Names the permissions whose drawn shapes contain the point. */
+  const shownAt = (bans: FireBan[], point: { latitude: number; longitude: number }) =>
+    bansToFeatureCollection(bans).features.filter(feature => pointInGeometry(point, feature.geometry)).map(feature => feature.properties?.permission);
 
-  it('carries what each ban permits now as its permission', () => {
-    const features = bansToFeatureCollection([makeBan({ id: 'a' }), makePermitBan({ id: 'b' }), makeAllowedBan({ id: 'c' })]).features;
-    expect(features.map(feature => feature.properties?.permission)).toEqual(['prohibited', 'by-permit-only', 'allowed']);
-  });
-
-  it('carries id, level and region as properties', () => {
-    const [feature] = bansToFeatureCollection([
-      makeBan({ id: 'rd-1', level: 'regional-district', region: 'Some District' }),
+  it('makes one feature per permission, carrying the permission as its only property', () => {
+    const features = bansToFeatureCollection([
+      makeAllowedBan({ id: 'c', geometry: square(20, 0, 1) }),
+      makeBan({ id: 'a', geometry: square(0, 0, 1) }),
+      makePermitBan({ id: 'b', geometry: square(10, 0, 1) }),
+      makeBan({ id: 'd', otherwise: 'allowed-with-conditions', geometry: square(30, 0, 1) }),
     ]).features;
-    expect(feature.id).toBe('rd-1');
-    expect(feature.properties).toEqual({ id: 'rd-1', level: 'regional-district', region: 'Some District', permission: 'prohibited' });
+    expect(features.map(feature => feature.properties)).toEqual([
+      { permission: 'prohibited' },
+      { permission: 'by-permit-only' },
+      { permission: 'allowed-with-conditions' },
+      { permission: 'allowed' },
+    ]);
   });
 
-  it('keeps MultiPolygon geometries', () => {
+  it('shows a ban where it is the only one', () => {
+    expect(shownAt([makeBan({ geometry: square(0, 0, 2) })], at(1, 1))).toEqual(['prohibited']);
+    expect(shownAt([makeBan({ geometry: square(0, 0, 2) })], at(5, 5))).toEqual([]);
+  });
+
+  it('shows only the strictest permission where bans overlap', () => {
+    const bans = [
+      makeAllowedBan({ id: 'green', geometry: square(0, 0, 10) }),
+      makePermitBan({ id: 'yellow', geometry: square(2, 2, 6) }),
+      makeBan({ id: 'red', geometry: square(4, 4, 2) }),
+    ];
+    expect(shownAt(bans, at(5, 5))).toEqual(['prohibited']);
+    expect(shownAt(bans, at(3, 3))).toEqual(['by-permit-only']);
+    expect(shownAt(bans, at(1, 1))).toEqual(['allowed']);
+    expect(shownAt(bans, at(11, 11))).toEqual([]);
+  });
+
+  it('shows green only where no stricter ban covers, whatever order the bans come in', () => {
+    const red = makeBan({ id: 'red', geometry: square(0, 0, 4) });
+    const green = makeAllowedBan({ id: 'green', geometry: square(2, 2, 4) });
+    for (const bans of [[red, green], [green, red]]) {
+      expect(shownAt(bans, at(3, 3))).toEqual(['prohibited']);
+      expect(shownAt(bans, at(5, 5))).toEqual(['allowed']);
+    }
+  });
+
+  it('treats allowed with conditions as stricter than allowed and softer than by permit only', () => {
+    const conditions = makeBan({ id: 'c', otherwise: 'allowed-with-conditions', geometry: square(0, 0, 4) });
+    expect(shownAt([makeAllowedBan({ geometry: square(0, 0, 10) }), conditions], at(1, 1))).toEqual(['allowed-with-conditions']);
+    expect(shownAt([conditions, makePermitBan({ geometry: square(0, 0, 10) })], at(1, 1))).toEqual(['by-permit-only']);
+  });
+
+  it('leaves out a permission that a stricter ban fully covers', () => {
+    const features = bansToFeatureCollection([
+      makeBan({ id: 'red', geometry: square(0, 0, 10) }),
+      makeAllowedBan({ id: 'green', geometry: square(2, 2, 2) }),
+    ]).features;
+    expect(features.map(feature => feature.properties?.permission)).toEqual(['prohibited']);
+  });
+
+  it('merges bans of the same permission into one shape', () => {
+    const features = bansToFeatureCollection([
+      makeBan({ id: 'a', geometry: square(0, 0, 4) }),
+      makeBan({ id: 'b', geometry: square(2, 0, 4) }),
+    ]).features;
+    expect(features).toHaveLength(1);
+    expect(features[0].geometry.type).toBe('MultiPolygon');
+    expect((features[0].geometry as MultiPolygon).coordinates).toHaveLength(1);
+  });
+
+  it('keeps a ban with MultiPolygon geometry', () => {
     const geometry = {
       type: 'MultiPolygon' as const,
-      coordinates: [[[[0, 0], [1, 0], [1, 1], [0, 0]]], [[[5, 5], [6, 5], [6, 6], [5, 5]]]],
+      coordinates: [square(0, 0, 1).coordinates, square(5, 5, 1).coordinates],
     };
-    const [feature] = bansToFeatureCollection([makeBan({ geometry })]).features;
-    expect(feature.geometry.type).toBe('MultiPolygon');
+    expect(shownAt([makeBan({ geometry })], at(0.5, 0.5))).toEqual(['prohibited']);
+    expect(shownAt([makeBan({ geometry })], at(5.5, 5.5))).toEqual(['prohibited']);
   });
 
   it('returns an empty collection for no bans', () => {

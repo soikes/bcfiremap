@@ -78,7 +78,7 @@ describe('currentPeriod and restricts', () => {
   });
 
   it('treats everything but allowed as a restriction', () => {
-    expect(['prohibited', 'by-permit-only', 'allowed'].map(p => restricts(p as Permission))).toEqual([true, true, false]);
+    expect(['prohibited', 'by-permit-only', 'allowed-with-conditions', 'allowed'].map(p => restricts(p as Permission))).toEqual([true, true, true, false]);
   });
 
   it('builds prohibited-from-a-date periods', () => {

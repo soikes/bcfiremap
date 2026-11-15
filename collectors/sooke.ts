@@ -7,9 +7,14 @@ export const sookeCollector = standingBanCollector({
   abmsName: "Sooke",
   activity: "backyard-burning",
   description:
-    "The District of Sooke allows backyard burning only from November 1 to April 30 (Fire Protection Services Bylaw No. 292), and only when the ventilation index is good and no fire ban is in place. " +
-    "It is not permitted from May 1 to October 31. " +
+    "The District of Sooke allows backyard burning from November 1 to April 30 (Fire Protection Services Bylaw No. 292) on these conditions: " +
+    "the ventilation index is good, the weather is safe, and no municipal or provincial fire ban is in place; " +
+    "the fire is small, supervised, at least 15 metres from any building or property line, and burns only clean, dry firewood or yard debris. " +
+    "Larger fires, yard waste burning and land clearing need a permit from Sooke Fire Rescue. " +
+    "Backyard burning is not permitted from May 1 to October 31. " +
     "Campfires follow the BC Wildfire Service Coastal Fire Centre rules.",
   rulesUrl: "https://www.sooke.ca/municipal-hall/bylaws/burning-regulations/",
-  periods: [{ permission: "allowed", annual: { start: "11-01", end: "04-30" } }],
+  periods: [
+    { permission: "allowed-with-conditions", annual: { start: "11-01", end: "04-30" } },
+  ],
 });

@@ -5,13 +5,13 @@ export const saanichCollector = standingBanCollector({
   authority: SAANICH_AUTHORITY,
   municipalityName: "District of Saanich",
   abmsName: "Saanich",
+  activity: "campfire",
   description:
-    "The District of Saanich does not permit open fires, including backyard burning and beach fires from May 1 through October 15 inclusive. " +
-    "The only exception in parks, on beaches and on boulevards is a CSA-approved natural gas or propane device used solely for cooking; fire rings are not permitted. " +
-    "Open-air burning elsewhere needs a permit from the Saanich Fire Department, granted only for religious, cultural or special events, fire department training, or ecological or conservation purposes. " +
+    "The District of Saanich does not permit beach fires or wood-burning fire pits, fireplaces, pizza ovens or chimineas (Fire Prevention and Life Safety Bylaw No. 9712). " +
+    "Propane, natural gas and charcoal cooking appliances are allowed. " +
+    "All open burning is prohibited from May 1 to October 15. " +
+    "Yard and garden refuse burning is never permitted inside the Urban Containment Boundary; outside it, it is allowed from October 16 to April 30, on Fridays and Saturday mornings without a permit or any day with one. " +
     "BC Wildfire Service orders do not apply inside the district.",
   rulesUrl:
     "https://www.saanich.ca/EN/main/community/fire-prevention-safety/outdoor-burning.html",
-  periods: [{ permission: "prohibited", annual: { start: "05-01", end: "10-15" } }],
-  otherwise: "allowed",
 });

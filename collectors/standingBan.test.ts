@@ -152,12 +152,13 @@ describe("what each municipality permits through the year", () => {
       DATES.map(([m, d]) => permissionAt(ban, new Date(2026, m - 1, d, 12))),
     ]);
   };
-  const P = "prohibited", B = "by-permit-only", A = "allowed";
+  const P = "prohibited", B = "by-permit-only", C = "allowed-with-conditions", A = "allowed";
 
-  it("Metchosin prohibits beach fires all year and allows backyard burning from October to May", async () => {
+  it("Metchosin prohibits beach fires all year, allows campfires with conditions, and allows backyard burning with conditions from October to May", async () => {
     expect(await calendar(metchosinCollector, "Metchosin")).toEqual([
       ["metchosin:beach-fires", "beach-fire", [P, P, P, P, P, P, P]],
-      ["metchosin:backyard-burning", "backyard-burning", [A, A, A, A, P, A, A]],
+      ["metchosin:campfires", "campfire", [C, C, C, C, C, C, C]],
+      ["metchosin:backyard-burning", "backyard-burning", [C, C, C, C, P, C, C]],
     ]);
   });
 
@@ -167,21 +168,21 @@ describe("what each municipality permits through the year", () => {
     ]);
   });
 
-  it("Central Saanich allows open burning by permit from October 16 to May 15", async () => {
+  it("Central Saanich allows recreational campfires all year", async () => {
     expect(await calendar(centralSaanichCollector, "Central Saanich")).toEqual([
-      ["central-saanich:open-fires", "open-burning", [B, B, B, P, P, B, B]],
+      ["central-saanich:campfires", "campfire", [A, A, A, A, A, A, A]],
     ]);
   });
 
-  it("Sooke allows backyard burning from November to April", async () => {
+  it("Sooke allows backyard burning with conditions from November to April", async () => {
     expect(await calendar(sookeCollector, "Sooke")).toEqual([
-      ["sooke:open-fires", "backyard-burning", [A, A, A, P, P, P, A]],
+      ["sooke:open-fires", "backyard-burning", [C, C, C, P, P, P, C]],
     ]);
   });
 
-  it("Saanich prohibits all fires from May 1 to October 15", async () => {
+  it("Saanich prohibits campfires, fire pits and beach fires all year", async () => {
     expect(await calendar(saanichCollector, "Saanich")).toEqual([
-      ["saanich:open-fires", "all-fires", [A, A, A, P, P, A, A]],
+      ["saanich:open-fires", "campfire", [P, P, P, P, P, P, P]],
     ]);
   });
 

@@ -9,13 +9,19 @@ describe('permissionColor', () => {
       ['get', 'permission'],
       'prohibited', PERMISSION_STYLE.prohibited[kind],
       'by-permit-only', PERMISSION_STYLE['by-permit-only'][kind],
+      'allowed-with-conditions', PERMISSION_STYLE['allowed-with-conditions'][kind],
       PERMISSION_STYLE.allowed[kind],
     ]);
   });
 
-  it('uses red for prohibited, amber for by permit only and green for allowed', () => {
+  it('uses red for prohibited, yellow for by permit only and allowed with conditions, and green for allowed', () => {
     expect(PERMISSION_STYLE.prohibited.stroke).toMatch(/^rgba\(220,50,50/);
-    expect(PERMISSION_STYLE['by-permit-only'].stroke).toMatch(/^rgba\(230,140,0/);
+    expect(PERMISSION_STYLE['by-permit-only'].stroke).toMatch(/^rgba\(234,179,8/);
+    expect(PERMISSION_STYLE['allowed-with-conditions']).toMatchObject({
+      fill: PERMISSION_STYLE['by-permit-only'].fill,
+      stroke: PERMISSION_STYLE['by-permit-only'].stroke,
+      solid: PERMISSION_STYLE['by-permit-only'].solid,
+    });
     expect(PERMISSION_STYLE.allowed.stroke).toMatch(/^rgba\(46,125,50/);
   });
 });
@@ -31,6 +37,6 @@ describe('ban style tables', () => {
 
   it('has a style for every permission, named as the permission is', () => {
     expect(Object.keys(PERMISSION_STYLE).sort()).toEqual([...PERMISSIONS].sort());
-    expect(PERMISSIONS.map(permission => PERMISSION_STYLE[permission].label)).toEqual(['Prohibited', 'By permit only', 'Allowed']);
+    expect(PERMISSIONS.map(permission => PERMISSION_STYLE[permission].label)).toEqual(['Prohibited', 'By permit only', 'Allowed with conditions', 'Allowed']);
   });
 });
