@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, jest, spyOn } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it, jest, mock, spyOn } from 'bun:test';
 import { makeBan } from '../test/fixtures';
 import { FireBan } from '../types/ban';
 import { Collector } from '../types/collector';
@@ -121,7 +121,10 @@ describe('createBanStore', () => {
 
 describe('createBanStore schedule', () => {
   beforeEach(() => jest.useFakeTimers());
-  afterEach(() => jest.useRealTimers());
+  afterEach(() => {
+    mock.restore();
+    jest.useRealTimers();
+  });
 
   /** Lets the promises a refresh is waiting on settle, without moving the clock. */
   const settle = async () => {
@@ -221,6 +224,5 @@ describe('createBanStore schedule', () => {
     const delays = timers.mock.calls.map(([, ms]) => Number(ms));
     expect(delays.length).toBeGreaterThan(0);
     expect(delays.every(ms => ms <= 2 ** 31 - 1)).toBe(true);
-    timers.mockRestore();
   });
 });

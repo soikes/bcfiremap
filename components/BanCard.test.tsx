@@ -14,7 +14,7 @@ describe('BanCard', () => {
           activity: 'campfire',
           description: 'Campfires are prohibited.',
           otherwise: 'allowed',
-          periods: [{ permission: 'prohibited', from: '2026-06-15' }],
+          periods: [{ permission: 'prohibited', from: '2000-01-01' }],
         })}
       />,
     );
@@ -23,7 +23,7 @@ describe('BanCard', () => {
     expect(screen.getByText('Thompson-Nicola Regional District')).toBeInTheDocument();
     expect(screen.getByText('Campfires:')).toBeInTheDocument();
     expect(screen.getByText('Campfires are prohibited.')).toBeInTheDocument();
-    expect(screen.getByText('Effective 2026-06-15')).toBeInTheDocument();
+    expect(screen.getByText('Effective 2000-01-01')).toBeInTheDocument();
   });
 
   it('names the activity from its type, and uses the source wording for other', () => {

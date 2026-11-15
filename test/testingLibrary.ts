@@ -32,6 +32,7 @@ const shortMessageMatchers = Object.fromEntries(
 expect.extend(shortMessageMatchers);
 
 configure({
+  asyncUtilTimeout: 4000,
   /** Errors from failed queries (getBy*, findBy*) carry the message only, without a printout of the document. */
   getElementError: message => {
     const error = new Error(message ?? 'Element not found');

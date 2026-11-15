@@ -1,9 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 import { SHOW_FIRE_ZONES } from '../constants/map';
+import { BROWSER_COLLECTORS } from '../collectors/constants/browser';
 import { useBans } from '../hooks/useBans';
 import { useLoadStatus } from '../hooks/useLoadStatus';
 import { useFireBans } from '../hooks/useFireBans';
+import { Collector } from '../types/collector';
 import { LatLng } from '../types/geo';
 import './App.css';
 import { BanPanel, BanPanelFallback } from './BanPanel';
@@ -19,6 +21,7 @@ import { Toast } from './Toast';
 
 interface Props {
   client?: QueryClient;
+  collectors?: Collector[];
 }
 
 const queryClient = new QueryClient({
@@ -32,8 +35,8 @@ const queryClient = new QueryClient({
 });
 
 /** Map screen: owns the selected location and composes the map layers, the source banner and the results panel. */
-function MapScreen() {
-  const { bans, sources } = useBans();
+function MapScreen({ collectors }: { collectors: Collector[] }) {
+  const { bans, sources } = useBans(collectors);
   const { loading, message } = useLoadStatus(sources);
   const [selected, setSelected] = useState<LatLng | null>(null);
   const [focus, setFocus] = useState<LatLng | null>(null);
@@ -74,10 +77,10 @@ function MapScreen() {
 }
 
 /** Root component: provides the data-fetching client to the map screen. */
-export default function App({ client = queryClient }: Props) {
+export default function App({ client = queryClient, collectors = BROWSER_COLLECTORS }: Props) {
   return (
     <QueryClientProvider client={client}>
-      <MapScreen />
+      <MapScreen collectors={collectors} />
     </QueryClientProvider>
   );
 }
