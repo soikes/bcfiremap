@@ -5,6 +5,12 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - 'docs/**'
+      - '.claude/**'
+      - '.gitignore'
 
 permissions:
   contents: read
@@ -21,41 +27,9 @@ jobs:
           install_args: bun
       - run: mise run check
 
-  changes:
-    name: Check for app changes
-    runs-on: ubuntu-latest
-    outputs:
-      deploy: ${{ steps.diff.outputs.deploy }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      # Files that never reach the deployed site: docs, tests, dev scripts and CI/tool config. Anything else deploys.
-      - id: diff
-        env:
-          BEFORE: ${{ github.event.before }}
-          AFTER: ${{ github.sha }}
-        run: |
-          if ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
-            echo "No earlier commit to compare with, deploying"
-            echo "deploy=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          changed=$(git diff --name-only "$BEFORE" "$AFTER")
-          echo "Changed files:"; echo "$changed"
-          app=$(echo "$changed" | grep -vE '\.md$|^LICENSE$|^docs/|^test/|\.test\.tsx?$|^scripts/|^\.github/|^\.claude/|^\.gitignore$|^mise\.(toml|lock)$' || true)
-          if [ -n "$app" ]; then
-            echo "App files changed, deploying:"; echo "$app"
-            echo "deploy=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "Only docs, tests, dev scripts or tooling changed, skipping the deploy"
-            echo "deploy=false" >> "$GITHUB_OUTPUT"
-          fi
-
   deploy:
     name: Deploy app
-    needs: [test, changes]
-    if: needs.changes.outputs.deploy == 'true'
+    needs: test
     runs-on: ubuntu-latest
     concurrency: deploy-group # optional: ensure only one action runs at a time
     steps:
