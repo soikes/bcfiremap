@@ -25,7 +25,6 @@ function panelTitle(bans: FireBan[], sources: SourceStatus[]): string | null {
 
 /** One-line status for a data source. */
 function sourceLine(source: SourceStatus): string {
-  if (source.status === "pending") return `${source.name}: loading…`;
   if (source.status === "error") return `${source.name}: unavailable`;
   const time = new Date(source.updatedAt).toLocaleTimeString([], {
     hour: "numeric",
@@ -34,14 +33,13 @@ function sourceLine(source: SourceStatus): string {
   return `${source.name}: updated ${time}`;
 }
 
-/** Keeps the sources that supplied one of the bans shown, plus any that haven't loaded cleanly, since those may be hiding bans. */
+/** Keeps the sources that supplied one of the bans shown, plus any that failed, since those may be hiding bans; sources still loading are left out. */
 function relevantSources(
   bans: FireBan[],
   sources: SourceStatus[],
 ): SourceStatus[] {
   return sources.filter(
-    (s) =>
-      bans.some((ban) => ban.source === s.id) || s.status !== "success",
+    (s) => bans.some((ban) => ban.source === s.id) || s.status === "error",
   );
 }
 

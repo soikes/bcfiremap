@@ -234,15 +234,15 @@ describe('App while a source is retried', () => {
   /** How many times the query with this key has failed so far. */
   const failures = (queryKey: string[]) => clients[0].getQueryCache().find({ queryKey })?.state.fetchFailureCount ?? 0;
 
-  it('shows the source as loading in the panel while a failed load is retried', async () => {
+  it('says data is loading, without listing the source, while a failed load is retried', async () => {
     route({ [PROVINCIAL_URL]: unreachable, [BANS_API_PATH]: SERVER_EMPTY });
     renderApp({ retry: 1, retryDelay: 60_000 });
     await waitFor(() => expect(failures(['bans', provincialCollector.id])).toBe(1));
 
     clickMap(...INSIDE);
 
-    expect(screen.getByText('BC Wildfire Service: loading…')).toBeInTheDocument();
     expect(screen.getByText('Loading ban data…')).toBeInTheDocument();
+    expect(screen.queryByText(/BC Wildfire Service:/)).toBeNull();
     expect(spinning()).toBe(true);
   });
 
@@ -253,7 +253,8 @@ describe('App while a source is retried', () => {
 
     clickMap(...INSIDE);
 
-    expect(screen.getByText('BC Fire Bans server: loading…')).toBeInTheDocument();
+    expect(await screen.findByText('6 fire restrictions in effect')).toBeInTheDocument();
+    expect(screen.queryByText(/BC Fire Bans server/)).toBeNull();
     expect(spinning()).toBe(true);
     expect(toast()).toBeNull();
   });

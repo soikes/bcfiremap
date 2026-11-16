@@ -132,10 +132,22 @@ describe('BanPanel sources', () => {
     expect(screen.getByText('Down Source: unavailable')).toBeInTheDocument();
   });
 
-  it('says a source that has not loaded yet is loading', () => {
-    renderPanel([], [makeSource({ name: 'BC Wildfire Service', status: 'pending' })]);
-    expect(screen.getByText('BC Wildfire Service: loading…')).toBeInTheDocument();
+  it('leaves out sources that are still loading, with their coverage and attribution, and says data is loading', () => {
+    const slow = makeSource({ id: 'slow', name: 'Slow Source', status: 'pending', coverage: 'Slow coverage.', attribution: 'Slow credit.' });
+    renderPanel([], [slow]);
+
     expect(screen.getByText('Loading ban data…')).toBeInTheDocument();
+    expect(screen.queryByText(/Slow Source/)).toBeNull();
+    expect(screen.queryByText('Slow coverage.')).toBeNull();
+    expect(screen.queryByText('Slow credit.')).toBeNull();
+  });
+
+  it('lists only the sources that supplied the bans shown while others are still loading', () => {
+    const used = makeSource({ id: 'used', name: 'Used Source' });
+    renderPanel([makeBan({ source: 'used' })], [used, makeSource({ id: 'slow', name: 'Slow Source', status: 'pending' })]);
+
+    expect(screen.getByText(/Used Source: updated/)).toBeInTheDocument();
+    expect(screen.queryByText(/Slow Source/)).toBeNull();
   });
 });
 
