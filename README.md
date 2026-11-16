@@ -25,6 +25,11 @@ Where rules overlap, the map shows only the strictest one. Tap a spot to see the
 - **Municipalities:** standing local fire rules (year-round bans, burning seasons, permit requirements) for BC municipalities and regions. These are written by hand from each municipality's published bylaws and fire pages, and drawn over its official boundary.
 - **Basemap, boundaries and place search:** OpenFreeMap, BC administrative boundaries and OpenStreetMap's Nominatim.
 
+## Roadmap
+
+- [ ] Keep municipal data current all year: browser agents regularly check each municipality's bylaws and fire pages and update its rules when they change, so they no longer depend on being written by hand.
+- [ ] A service that lets municipalities publish their fire rules and bans directly.
+
 ## Run it locally
 
 You need [mise](https://mise.jdx.dev), which installs the right versions of Bun and the other tools.
