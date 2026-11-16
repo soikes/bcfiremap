@@ -1,8 +1,12 @@
+import municipalBoundaries from "../data/boundaries/municipalities.json";
+import { Area } from "../types/area";
 import { Activity, FireBan, Period, Permission } from "../types/ban";
 import { Authority } from "../types/authority";
 import { Collector } from "../types/collector";
-import { fetchAreas } from "../utils/abms";
+import { parseAreas } from "../utils/abms";
 import { logger } from "../utils/logger";
+
+const STORED_MUNICIPALITIES = parseAreas(municipalBoundaries, "municipality");
 
 export interface StandingBanConfig {
   authority: Authority;
@@ -36,9 +40,10 @@ export function buildStandingBan(
   };
 }
 
-/** Creates a collector that puts a municipality's standing rules (one config each, all for the same municipality) on its ABMS boundary. */
+/** Creates a collector that puts a municipality's standing rules (one config each, all for the same municipality) on its boundary from the stored ABMS copy. */
 export function standingBanCollector(
   config: StandingBanConfig | StandingBanConfig[],
+  municipalities: Area[] = STORED_MUNICIPALITIES,
 ): Collector {
   const configs = [config].flat();
   const { authority, municipalityName, abmsName } = configs[0];
@@ -47,13 +52,8 @@ export function standingBanCollector(
     name: municipalityName,
     coverage: `The standing open fire rules inside the ${municipalityName} boundary.`,
     attribution: `${municipalityName} fire rules; boundary contains information licensed under the Open Government Licence – British Columbia.`,
-    refetchIntervalMs: 7 * 24 * 60 * 60 * 1000,
-    collect: async (signal) => {
-      const [area] = await fetchAreas(
-        "municipality",
-        `ADMIN_AREA_ABBREVIATION='${abmsName}'`,
-        signal,
-      );
+    collect: async () => {
+      const area = municipalities.find((each) => each.name === abmsName);
       if (!area) throw new Error(`${municipalityName} boundary not found`);
       logger.log(`[${authority.id}] built ${configs.length} standing rule(s)`);
       return configs.map((each) => buildStandingBan(each, area.geometry));

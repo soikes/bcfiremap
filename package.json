@@ -9,6 +9,7 @@
     "build:web": "bun --env-file=.env.template --env-file=.env build --production --env='PUBLIC_*' --outdir=dist/public web/index.html && cp -R assets/fonts dist/public/fonts",
     "build:server": "bun build --target=bun --production --outdir=dist/server server/index.ts",
     "test": "bun test",
+    "boundaries": "bun scripts/fetchBoundaries.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

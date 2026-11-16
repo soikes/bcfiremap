@@ -42,6 +42,11 @@ run = "bun run typecheck"
 description = "Typecheck and test"
 depends = ["typecheck", "test"]
 
+[tasks.boundaries]
+description = "Fetch the Capital Regional District's municipal boundaries from BC's ABMS service into data/boundaries"
+depends = ["install"]
+run = "bun run boundaries"
+
 [tasks.build]
 description = "Build the image on Fly's remote builder without deploying"
 run = "fly deploy --build-only --remote-only"
