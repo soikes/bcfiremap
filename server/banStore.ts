@@ -21,22 +21,15 @@ const FAILED_RETRY_MS = 10 * 60 * 1000;
 /** Delay before retry number `attempt` (from 0), doubling from 1 s up to 30 s. */
 const backoff = (attempt: number) => Math.min(1000 * 2 ** attempt, 30000);
 
-/** Runs `task`, retrying up to `retries` more times with a delay before each retry, and calling `onRetry` when one starts. */
-async function withRetry<T>(
-  task: () => Promise<T>,
-  retries: number,
-  delayMs: (attempt: number) => number,
-  onRetry: () => void,
-  attempt = 0,
-): Promise<T> {
+/** Runs `task`, retrying up to `retries` more times with a delay before each retry. */
+async function withRetry<T>(task: () => Promise<T>, retries: number, delayMs: (attempt: number) => number, attempt = 0): Promise<T> {
   try {
     return await task();
   } catch (error) {
     if (attempt >= retries) throw error;
     logger.log('[banStore] retrying after error', error);
-    onRetry();
     await Bun.sleep(delayMs(attempt));
-    return withRetry(task, retries, delayMs, onRetry, attempt + 1);
+    return withRetry(task, retries, delayMs, attempt + 1);
   }
 }
 
@@ -46,24 +39,19 @@ export function createBanStore(
   { retries = 3, retryDelayMs = backoff }: Options = {},
 ) {
   const sources: Record<string, StoredSource> = {};
-  const live = new Map<string, { fetching: boolean; retrying: boolean }>();
   const timers = new Set<ReturnType<typeof setTimeout>>();
   let stopped = false;
 
   /** Runs one collector with retries and stores its bans, or marks it failed. */
   async function load(collector: Collector): Promise<void> {
-    const setLive = (changes: Partial<{ fetching: boolean; retrying: boolean }>) =>
-      live.set(collector.id, { fetching: false, retrying: false, ...live.get(collector.id), ...changes });
-    setLive({ fetching: true, retrying: false });
     try {
-      const bans = validBans(await withRetry(() => collector.collect(), retries, retryDelayMs, () => setLive({ retrying: true })), collector.id);
+      const bans = validBans(await withRetry(() => collector.collect(), retries, retryDelayMs), collector.id);
       sources[collector.id] = { bans, status: 'success', updatedAt: Date.now() };
       logger.log(`[banStore] ${collector.id} loaded`, bans.length, 'bans');
     } catch (error) {
       sources[collector.id] = { bans: [], status: 'error', updatedAt: 0 };
       logger.error(`[banStore] ${collector.id} failed to load`, error);
     }
-    setLive({ fetching: false, retrying: false });
   }
 
   /** Loads the collector, then tries again every 10 minutes while it keeps failing, until stopped; resolves after the first try. */
@@ -94,20 +82,14 @@ export function createBanStore(
   function snapshot(): BansResponse {
     return {
       bans: collectors.flatMap(c => sources[c.id]?.bans ?? []),
-      sources: collectors.map(c => {
-        const stored = sources[c.id];
-        return {
-          id: c.id,
-          name: c.name,
-          coverage: c.coverage,
-          attribution: c.attribution,
-          status: stored?.status ?? 'pending',
-          hasData: (stored?.updatedAt ?? 0) > 0,
-          fetching: live.get(c.id)?.fetching ?? false,
-          retrying: live.get(c.id)?.retrying ?? false,
-          updatedAt: stored?.updatedAt ?? 0,
-        };
-      }),
+      sources: collectors.map(c => ({
+        id: c.id,
+        name: c.name,
+        coverage: c.coverage,
+        attribution: c.attribution,
+        status: sources[c.id]?.status ?? 'pending',
+        updatedAt: sources[c.id]?.updatedAt ?? 0,
+      })),
     };
   }
 

@@ -9,9 +9,6 @@ export interface SourceStatus {
   coverage: string;
   attribution: string;
   status: LoadStatus;
-  hasData: boolean;
-  fetching: boolean;
-  retrying: boolean;
   updatedAt: number;
 }
 

@@ -133,9 +133,6 @@ describe('isSourceStatus', () => {
     ['null', null],
     ['a missing name', { ...makeSource(), name: undefined }],
     ['an unknown status', { ...makeSource(), status: 'loading' }],
-    ['a string hasData', { ...makeSource(), hasData: 'yes' }],
-    ['a missing retrying flag', { ...makeSource(), retrying: undefined }],
-    ['a missing fetching flag', { ...makeSource(), fetching: undefined }],
     ['a string updatedAt', { ...makeSource(), updatedAt: '12:00' }],
   ])('rejects %s', (_case, value) => {
     expect(isSourceStatus(value)).toBe(false);
@@ -179,12 +176,11 @@ describe('parseBansResponse', () => {
 });
 
 describe('failedSources', () => {
-  it('returns only the sources that failed with no data', () => {
+  it('returns only the sources that failed to load', () => {
     const sources = [
       makeSource({ id: 'ok' }),
-      makeSource({ id: 'loading', status: 'pending', hasData: false }),
-      makeSource({ id: 'stale', status: 'error', hasData: true }),
-      makeSource({ id: 'down', status: 'error', hasData: false }),
+      makeSource({ id: 'loading', status: 'pending' }),
+      makeSource({ id: 'down', status: 'error' }),
     ];
     expect(failedSources(sources).map(source => source.id)).toEqual(['down']);
   });

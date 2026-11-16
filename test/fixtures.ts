@@ -91,9 +91,6 @@ export const makeSource = (overrides: Partial<SourceStatus> = {}): SourceStatus 
   coverage: 'Test coverage.',
   attribution: '',
   status: 'success',
-  hasData: true,
-  fetching: false,
-  retrying: false,
   updatedAt: Date.UTC(2026, 6, 1, 19, 0),
   ...overrides,
 });

@@ -12,15 +12,12 @@ interface Options {
   messageMs?: number;
 }
 
-/** True if the source has a request in flight or one waiting to be retried. */
-const isBusy = (source: SourceStatus) => source.fetching || source.retrying;
-
 /** Says whether ban data is loading, stopping after `timeoutMs`, and, once loading is over, returns a message for a few seconds if any source has no data because it failed or timed out (not again until the set of such sources changes). */
 export function useLoadStatus(
   sources: SourceStatus[],
   { timeoutMs = LOAD_TIMEOUT_MS, messageMs = MESSAGE_MS }: Options = {},
 ): { loading: boolean; message: string | null } {
-  const busy = sources.some(isBusy);
+  const busy = sources.some(source => source.status === 'pending');
   const [timedOut, setTimedOut] = useState(false);
   const [message, setMessage] = useTimedMessage(messageMs);
   const announced = useRef('');
@@ -41,7 +38,7 @@ export function useLoadStatus(
   const missing = loading
     ? ''
     : sources
-        .filter(source => !source.hasData && (source.status === 'error' || isBusy(source)))
+        .filter(source => source.status !== 'success')
         .map(source => source.id)
         .join(',');
 

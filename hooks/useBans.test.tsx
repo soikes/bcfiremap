@@ -32,7 +32,7 @@ const wrapper = ({ children }: { children: ReactNode }) => {
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 };
 
-/** Renders useBans with its own query client (no retries unless given) and returns both, so a test can trigger refreshes. */
+/** Renders useBans with its own query client (no retries unless given) and returns both, so a test can look at its queries. */
 const renderBans = (collectors: Collector[], retry: { retry: number; retryDelay: number } | { retry: false } = { retry: false }) => {
   const client = new QueryClient({ defaultOptions: { queries: { gcTime: Infinity, ...retry } } });
   const clientWrapper = ({ children }: { children: ReactNode }) => (
@@ -47,7 +47,7 @@ const failing = (id: string) =>
     throw new Error(`${id} is down`);
   });
 
-const serverPlaceholder = (status: string) => expect.objectContaining({ id: 'server', status, hasData: false });
+const serverPlaceholder = (status: string) => expect.objectContaining({ id: 'server', status });
 
 beforeEach(() => {
   mockServer(serverAnswers({ bans: [], sources: [] }));
@@ -86,8 +86,8 @@ describe('useBans browser collectors', () => {
     await waitFor(() => expect(result.current.sources[1].status).toBe('error'));
 
     expect(result.current.bans.map(ban => ban.id)).toEqual(['g1']);
-    expect(result.current.sources[1]).toMatchObject({ id: 'bad', hasData: false });
-    expect(result.current.sources[0]).toMatchObject({ id: 'good', status: 'success', hasData: true });
+    expect(result.current.sources[1]).toMatchObject({ id: 'bad' });
+    expect(result.current.sources[0]).toMatchObject({ id: 'good', status: 'success' });
   });
 
   it('reports a source as pending until it answers', () => {
@@ -95,7 +95,7 @@ describe('useBans browser collectors', () => {
     const { result } = renderHook(() => useBans(collectors), { wrapper });
 
     expect(result.current.bans).toEqual([]);
-    expect(result.current.sources[0]).toMatchObject({ status: 'pending', hasData: false });
+    expect(result.current.sources[0]).toMatchObject({ status: 'pending' });
   });
 
   it('carries each collector name, coverage and attribution through', () => {
@@ -115,7 +115,7 @@ describe('useBans server sources', () => {
   it('shows a pending placeholder for the server until it answers', () => {
     mockServer(() => new Promise(() => {}));
     const { result } = renderHook(() => useBans([]), { wrapper });
-    expect(result.current.sources).toEqual([expect.objectContaining({ id: 'server', status: 'pending', hasData: false })]);
+    expect(result.current.sources).toEqual([expect.objectContaining({ id: 'server', status: 'pending' })]);
   });
 
   it('adds the bans and sources the server sent after the browser ones', async () => {
@@ -146,7 +146,7 @@ describe('useBans server sources', () => {
 
     await waitFor(() => expect(result.current.sources[1]?.status).toBe('error'));
 
-    expect(result.current.sources[1]).toMatchObject({ id: 'server', hasData: false });
+    expect(result.current.sources[1]).toMatchObject({ id: 'server' });
     await waitFor(() => expect(result.current.bans.map(ban => ban.id)).toEqual(['a1']));
   });
 });
@@ -164,6 +164,7 @@ describe('useBans loads once', () => {
     }
   });
 });
+
 
 describe('useBans when browser collectors fail', () => {
   it('keeps the bans of the collectors that worked when one fails', async () => {
@@ -183,11 +184,7 @@ describe('useBans when browser collectors fail', () => {
     await waitFor(() => expect(result.current.sources.every(source => source.status === 'error')).toBe(true));
 
     expect(result.current.bans).toEqual([]);
-    expect(result.current.sources.map(source => [source.id, source.hasData])).toEqual([
-      ['a', false],
-      ['b', false],
-      ['server', false],
-    ]);
+    expect(result.current.sources.map(source => source.id)).toEqual(['a', 'b', 'server']);
   });
 
   it('treats a collector that returns something other than a list as failed', async () => {
@@ -197,7 +194,7 @@ describe('useBans when browser collectors fail', () => {
     await waitFor(() => expect(result.current.sources[1].status).toBe('error'));
 
     expect(result.current.bans.map(ban => ban.id)).toEqual(['g1']);
-    expect(result.current.sources[1]).toMatchObject({ id: 'broken', hasData: false });
+    expect(result.current.sources[1]).toMatchObject({ id: 'broken' });
   });
 
   it('drops malformed bans from a collector and keeps its valid ones', async () => {
@@ -207,24 +204,6 @@ describe('useBans when browser collectors fail', () => {
     await waitFor(() => expect(result.current.sources[0].status).toBe('success'));
 
     expect(result.current.bans.map(ban => ban.id)).toEqual(['ok']);
-  });
-
-  it('keeps the last good bans, marked as failed, when a refresh fails', async () => {
-    let fail = false;
-    const flaky = collector('flaky', async () => {
-      if (fail) throw new Error('down');
-      return [makeBan({ id: 'f1' })];
-    });
-    const { result, client } = renderBans([flaky]);
-    await waitFor(() => expect(result.current.sources[0].status).toBe('success'));
-    const goodTime = result.current.sources[0].updatedAt;
-
-    fail = true;
-    await client.refetchQueries({ queryKey: ['bans', 'flaky'] });
-
-    await waitFor(() => expect(result.current.sources[0].status).toBe('error'));
-    expect(result.current.bans.map(ban => ban.id)).toEqual(['f1']);
-    expect(result.current.sources[0]).toMatchObject({ hasData: true, updatedAt: goodTime });
   });
 });
 
@@ -275,40 +254,25 @@ describe('useBans when the server fails', () => {
   });
 
   it('passes through a server source that failed on the server', async () => {
-    mockServer(serverAnswers({ bans: [], sources: [makeSource({ id: 'muni', status: 'error', hasData: false })] }));
+    mockServer(serverAnswers({ bans: [], sources: [makeSource({ id: 'muni', status: 'error' })] }));
     const { result } = renderBans([]);
 
     await waitFor(() => expect(result.current.sources).toEqual([expect.objectContaining({ id: 'muni', status: 'error' })]));
   });
-
-  it('keeps the last server answer when a later server request fails', async () => {
-    let fail = false;
-    mockServer(async () => {
-      if (fail) throw new Error('offline');
-      return { ok: true, json: async () => ({ bans: [makeBan({ id: 's1' })], sources: [makeSource({ id: 'muni' })] }) };
-    });
-    const { result, client } = renderBans([]);
-    await waitFor(() => expect(result.current.bans.map(ban => ban.id)).toEqual(['s1']));
-
-    fail = true;
-    await client.refetchQueries({ queryKey: ['server-bans'] });
-
-    expect(result.current.bans.map(ban => ban.id)).toEqual(['s1']);
-    expect(result.current.sources.map(source => source.id)).toEqual(['muni']);
-  });
 });
 
-describe('useBans while retrying', () => {
+describe('useBans while retrying a failed load', () => {
   // A retry delay this long never ends during a test, so the state after the first failure is stable.
   const LONG = 600_000;
 
-  it('flags a browser source as retrying after a failed attempt', async () => {
-    const { result } = renderBans([failing('flaky')], { retry: 1, retryDelay: LONG });
+  it('keeps a browser source pending while a failed attempt is retried', async () => {
+    const { result, client } = renderBans([failing('flaky')], { retry: 1, retryDelay: LONG });
 
-    await waitFor(() => expect(result.current.sources[0]).toMatchObject({ status: 'pending', fetching: true, retrying: true }));
+    await waitFor(() => expect(findQuery(client, ['bans', 'flaky']).state.fetchFailureCount).toBe(1));
+    expect(result.current.sources[0]).toMatchObject({ status: 'pending' });
   });
 
-  it('clears the retrying flag and keeps the bans when the retry succeeds', async () => {
+  it('loads a browser source when its retry succeeds', async () => {
     let calls = 0;
     const flaky = collector('flaky', async () => {
       calls += 1;
@@ -317,112 +281,23 @@ describe('useBans while retrying', () => {
     });
     const { result } = renderBans([flaky], { retry: 1, retryDelay: 0 });
 
-    await waitFor(() => expect(result.current.sources[0]).toMatchObject({ status: 'success', retrying: false }));
+    await waitFor(() => expect(result.current.sources[0]).toMatchObject({ status: 'success' }));
     expect(result.current.bans.map(ban => ban.id)).toEqual(['f1']);
   });
 
-  it('stops flagging a browser source as retrying once every retry has failed', async () => {
+  it('marks a browser source as failed once every retry has failed', async () => {
     const { result } = renderBans([failing('bad')], { retry: 1, retryDelay: 0 });
 
-    await waitFor(() => expect(result.current.sources[0]).toMatchObject({ status: 'error', retrying: false }));
+    await waitFor(() => expect(result.current.sources[0]).toMatchObject({ status: 'error' }));
   });
 
-  it('flags the server placeholder as retrying while the first server request is retried', async () => {
+  it('keeps the server placeholder pending while the server request is retried', async () => {
     mockServer(async () => {
       throw new Error('offline');
     });
-    const { result } = renderBans([], { retry: 1, retryDelay: LONG });
-
-    await waitFor(() =>
-      expect(result.current.sources).toEqual([expect.objectContaining({ id: 'server', status: 'pending', retrying: true })]),
-    );
-  });
-
-  it('adds a retrying server entry next to the server sources when a later request is retried', async () => {
-    let fail = false;
-    mockServer(async () => {
-      if (fail) throw new Error('offline');
-      return { ok: true, json: async () => ({ bans: [makeBan({ id: 's1' })], sources: [makeSource({ id: 'muni' })] }) };
-    });
     const { result, client } = renderBans([], { retry: 1, retryDelay: LONG });
-    await waitFor(() => expect(result.current.bans.map(ban => ban.id)).toEqual(['s1']));
 
-    fail = true;
-    void client.refetchQueries({ queryKey: ['server-bans'] });
-
-    await waitFor(() =>
-      expect(result.current.sources).toEqual([
-        expect.objectContaining({ id: 'muni' }),
-        expect.objectContaining({ id: 'server', hasData: true, retrying: true }),
-      ]),
-    );
-    expect(result.current.bans.map(ban => ban.id)).toEqual(['s1']);
-  });
-});
-
-describe('useBans requests in flight', () => {
-  it('flags a browser source as fetching while its request runs, and clears it when it answers', async () => {
-    let answer: (bans: FireBan[]) => void = () => {};
-    const slow = collector('slow', () => new Promise<FireBan[]>(resolve => (answer = resolve)));
-    const { result } = renderBans([slow]);
-
-    await waitFor(() => expect(result.current.sources[0]).toMatchObject({ status: 'pending', fetching: true }));
-
-    answer([makeBan({ id: 's1' })]);
-
-    await waitFor(() => expect(result.current.sources[0]).toMatchObject({ status: 'success', fetching: false }));
-  });
-
-  it('flags a browser source as fetching while it refreshes data it already has', async () => {
-    let calls = 0;
-    let answer: (bans: FireBan[]) => void = () => {};
-    const refreshing = collector('refreshing', () => {
-      calls += 1;
-      return calls === 1 ? Promise.resolve([makeBan({ id: 'r1' })]) : new Promise<FireBan[]>(resolve => (answer = resolve));
-    });
-    const { result, client } = renderBans([refreshing]);
-    await waitFor(() => expect(result.current.sources[0]).toMatchObject({ status: 'success', fetching: false }));
-
-    void client.refetchQueries({ queryKey: ['bans', 'refreshing'] });
-
-    await waitFor(() => expect(result.current.sources[0]).toMatchObject({ hasData: true, fetching: true }));
-    answer([makeBan({ id: 'r2' })]);
-    await waitFor(() => expect(result.current.sources[0].fetching).toBe(false));
-  });
-
-  it('flags the server placeholder as fetching until the server answers', async () => {
-    mockServer(() => new Promise(() => {}));
-    const { result } = renderBans([]);
-
-    await waitFor(() =>
-      expect(result.current.sources).toEqual([expect.objectContaining({ id: 'server', fetching: true, retrying: false })]),
-    );
-  });
-
-  it('adds a fetching server entry next to the server sources while a later request runs', async () => {
-    let hang = false;
-    mockServer(async () => {
-      if (hang) return new Promise(() => {});
-      return { ok: true, json: async () => ({ bans: [], sources: [makeSource({ id: 'muni' })] }) };
-    });
-    const { result, client } = renderBans([]);
-    await waitFor(() => expect(result.current.sources.map(source => source.id)).toEqual(['muni']));
-
-    hang = true;
-    void client.refetchQueries({ queryKey: ['server-bans'] });
-
-    await waitFor(() =>
-      expect(result.current.sources).toEqual([
-        expect.objectContaining({ id: 'muni' }),
-        expect.objectContaining({ id: 'server', hasData: true, fetching: true, retrying: false }),
-      ]),
-    );
-  });
-
-  it('passes through a server source that the server is still fetching', async () => {
-    mockServer(serverAnswers({ bans: [], sources: [makeSource({ id: 'muni', status: 'pending', hasData: false, fetching: true })] }));
-    const { result } = renderBans([]);
-
-    await waitFor(() => expect(result.current.sources).toEqual([expect.objectContaining({ id: 'muni', fetching: true })]));
+    await waitFor(() => expect(findQuery(client, ['server-bans']).state.fetchFailureCount).toBe(1));
+    expect(result.current.sources).toEqual([serverPlaceholder('pending')]);
   });
 });

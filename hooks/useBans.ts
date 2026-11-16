@@ -2,29 +2,21 @@ import { useQueries, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import { BROWSER_COLLECTORS } from '../collectors/constants/browser';
 import { BANS_API_PATH } from '../constants/api';
-import { BansResponse, SourceStatus } from '../types/api';
+import { BansResponse, LoadStatus, SourceStatus } from '../types/api';
 import { FireBan } from '../types/ban';
 import { Collector } from '../types/collector';
 import { parseBansResponse, validBans } from '../utils/bans';
 import { fetchJson } from '../utils/web';
 
-/** Stands in for the server itself: until it has answered, or while a request to it is in flight or being retried. */
-const serverPlaceholder = (
-  state: Pick<SourceStatus, 'status' | 'hasData' | 'fetching' | 'retrying' | 'updatedAt'>,
-): SourceStatus => ({
+/** Stands in for the server's sources until the server has answered, or after it failed to. */
+const serverPlaceholder = (status: LoadStatus): SourceStatus => ({
   id: 'server',
   name: 'BC Fire Bans server',
-  coverage: "Bans gathered on a schedule by this site's server.",
+  coverage: "Bans gathered by this site's server.",
   attribution: '',
-  ...state,
+  status,
+  updatedAt: 0,
 });
-
-/** True if a query's last attempt failed and it is trying again. */
-const isRetrying = (result: Pick<UseQueryResult, 'failureCount' | 'fetchStatus'>) =>
-  result.failureCount > 0 && result.fetchStatus !== 'idle';
-
-/** True if a query has a request in flight. */
-const isFetching = (result: Pick<UseQueryResult, 'fetchStatus'>) => result.fetchStatus === 'fetching';
 
 /** Runs the browser collectors and fetches the server's bans, each once on page load (retrying a failed load), and merges both. */
 export function useBans(collectors: Collector[] = BROWSER_COLLECTORS): BansResponse {
@@ -37,9 +29,6 @@ export function useBans(collectors: Collector[] = BROWSER_COLLECTORS): BansRespo
         coverage: collectors[i].coverage,
         attribution: collectors[i].attribution,
         status: result.status,
-        hasData: result.data !== undefined,
-        fetching: isFetching(result),
-        retrying: isRetrying(result),
         updatedAt: result.dataUpdatedAt,
       })),
     }),
@@ -61,23 +50,11 @@ export function useBans(collectors: Collector[] = BROWSER_COLLECTORS): BansRespo
     staleTime: Infinity,
   });
 
-  const serverFetching = isFetching(server);
-  const serverRetrying = isRetrying(server);
-
-  return useMemo(() => {
-    const { status, data, dataUpdatedAt } = server;
-    const busy = serverFetching || serverRetrying;
-    const serverSources = data
-      ? [
-          ...data.sources,
-          ...(busy
-            ? [serverPlaceholder({ status, hasData: true, fetching: serverFetching, retrying: serverRetrying, updatedAt: dataUpdatedAt })]
-            : []),
-        ]
-      : [serverPlaceholder({ status, hasData: false, fetching: serverFetching, retrying: serverRetrying, updatedAt: 0 })];
-    return {
-      bans: [...browser.bans, ...(data?.bans ?? [])],
-      sources: [...browser.sources, ...serverSources],
-    };
-  }, [browser, server.status, server.data, server.dataUpdatedAt, serverFetching, serverRetrying]);
+  return useMemo(
+    () => ({
+      bans: [...browser.bans, ...(server.data?.bans ?? [])],
+      sources: [...browser.sources, ...(server.data?.sources ?? [serverPlaceholder(server.status)])],
+    }),
+    [browser, server.data, server.status],
+  );
 }

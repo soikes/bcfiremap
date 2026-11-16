@@ -22,7 +22,7 @@ describe('createBanStore', () => {
     expect(store.snapshot()).toEqual({
       bans: [],
       sources: [
-        { id: 'a', name: 'Source a', coverage: 'Coverage a', attribution: '', status: 'pending', hasData: false, fetching: false, retrying: false, updatedAt: 0 },
+        { id: 'a', name: 'Source a', coverage: 'Coverage a', attribution: '', status: 'pending', updatedAt: 0 },
       ],
     });
   });
@@ -37,7 +37,7 @@ describe('createBanStore', () => {
     const { bans, sources } = store.snapshot();
     expect(bans.map(ban => ban.id)).toEqual(['a1', 'b1', 'b2']);
     expect(sources.map(source => source.status)).toEqual(['success', 'success']);
-    expect(sources.every(source => source.hasData && source.updatedAt > 0)).toBe(true);
+    expect(sources.every(source => source.updatedAt > 0)).toBe(true);
   });
 
   it('reports a failing source and still returns the others', async () => {
@@ -51,7 +51,7 @@ describe('createBanStore', () => {
 
     const { bans, sources } = store.snapshot();
     expect(bans.map(ban => ban.id)).toEqual(['g1']);
-    expect(sources[1]).toMatchObject({ id: 'bad', status: 'error', hasData: false });
+    expect(sources[1]).toMatchObject({ id: 'bad', status: 'error' });
   });
 
   it('marks a collector that returns something other than a list as failed', async () => {
@@ -60,7 +60,7 @@ describe('createBanStore', () => {
 
     await store.load(broken);
 
-    expect(store.snapshot()).toMatchObject({ bans: [], sources: [{ id: 'broken', status: 'error', hasData: false }] });
+    expect(store.snapshot()).toMatchObject({ bans: [], sources: [{ id: 'broken', status: 'error' }] });
   });
 
   it('drops malformed bans from a collector and keeps its valid ones', async () => {

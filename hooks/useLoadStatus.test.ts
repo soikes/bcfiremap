@@ -13,25 +13,20 @@ const advance = (ms: number) =>
     jest.advanceTimersByTime(ms);
   });
 
-const loading = (id: string, extra: Partial<SourceStatus> = {}) =>
-  makeSource({ id, name: id, status: 'pending', hasData: false, fetching: true, ...extra });
-const failed = (id: string) => makeSource({ id, name: id, status: 'error', hasData: false });
+const loading = (id: string) => makeSource({ id, name: id, status: 'pending' });
+const failed = (id: string) => makeSource({ id, name: id, status: 'error' });
 const loaded = (id: string) => makeSource({ id, name: id });
 
 const setup = (initial: SourceStatus[], options = { timeoutMs: 1000, messageMs: 5000 }) =>
   renderHook(({ sources }: { sources: SourceStatus[] }) => useLoadStatus(sources, options), { initialProps: { sources: initial } });
 
 describe('useLoadStatus loading', () => {
-  it('is loading while any source has a request in flight or being retried', () => {
+  it('is loading while any source has not loaded yet', () => {
     expect(setup([loaded('A'), loading('B')]).result.current.loading).toBe(true);
-    expect(setup([loaded('A'), loading('B', { fetching: false, retrying: true })]).result.current.loading).toBe(true);
   });
 
-  it('is loading while a source refreshes data it already has', () => {
-    expect(setup([makeSource({ fetching: true })]).result.current.loading).toBe(true);
-  });
-
-  it('is not loading when nothing is in flight, or there are no sources', () => {
+  it('is not loading when every source has loaded or failed, or there are no sources', () => {
+    expect(setup([loaded('A'), failed('B')]).result.current.loading).toBe(false);
     expect(setup([loaded('A')]).result.current.loading).toBe(false);
     expect(setup([]).result.current.loading).toBe(false);
   });
@@ -46,19 +41,6 @@ describe('useLoadStatus loading', () => {
 
   it('stops loading after the timeout even though a source is still loading', () => {
     const { result } = setup([loading('A')]);
-    advance(999);
-    expect(result.current.loading).toBe(true);
-    advance(1);
-    expect(result.current.loading).toBe(false);
-  });
-
-  it('gives each new round of loading its own timeout', () => {
-    const { result, rerender } = setup([loading('A')]);
-    advance(1000);
-    expect(result.current.loading).toBe(false);
-    rerender({ sources: [loaded('A')] });
-    rerender({ sources: [loaded('A'), loading('B')] });
-    expect(result.current.loading).toBe(true);
     advance(999);
     expect(result.current.loading).toBe(true);
     advance(1);
@@ -92,12 +74,6 @@ describe('useLoadStatus message', () => {
     expect(result.current.loading).toBe(false);
   });
 
-  it('does not count a failed refresh that left older data on the map', () => {
-    const { result, rerender } = setup([loading('A')]);
-    rerender({ sources: [makeSource({ id: 'A', status: 'error', hasData: true })] });
-    expect(result.current.message).toBeNull();
-  });
-
   it('clears the message after the message time', () => {
     const { result, rerender } = setup([loading('A')], { timeoutMs: 5000, messageMs: 6000 });
     rerender({ sources: [failed('A')] });
@@ -108,31 +84,25 @@ describe('useLoadStatus message', () => {
     expect(result.current.message).toBeNull();
   });
 
-  it('does not repeat the message for the same failed sources on the next load', () => {
-    const { result, rerender } = setup([loading('A')], { timeoutMs: 5000, messageMs: 40 });
-    rerender({ sources: [failed('A')] });
-    advance(40);
-    expect(result.current.message).toBeNull();
-
-    rerender({ sources: [loading('A', { status: 'error' })] });
-    rerender({ sources: [failed('A')] });
-    expect(result.current.message).toBeNull();
-  });
-
-  it('says it again for a different failure, and again after the failure cleared', () => {
-    const { result, rerender } = setup([loading('A'), loading('B')], { timeoutMs: 5000, messageMs: 40 });
-    rerender({ sources: [failed('A'), loaded('B')] });
-    advance(40);
-    expect(result.current.message).toBeNull();
-
-    rerender({ sources: [loading('A'), loaded('B')] });
-    rerender({ sources: [failed('A'), failed('B')] });
+  it('does not repeat the message when a source that timed out later fails', () => {
+    const { result, rerender } = setup([loading('A')], { timeoutMs: 1000, messageMs: 40 });
+    advance(1000);
     expect(result.current.message).toBe(LOAD_FAILED_MESSAGE);
     advance(40);
     expect(result.current.message).toBeNull();
 
-    rerender({ sources: [loaded('A'), loaded('B')] });
-    rerender({ sources: [failed('A'), loaded('B')] });
+    rerender({ sources: [failed('A')] });
+    expect(result.current.message).toBeNull();
+  });
+
+  it('says it again when the set of sources without data changes after a timeout', () => {
+    const { result, rerender } = setup([loaded('A'), loading('B'), loading('C')], { timeoutMs: 1000, messageMs: 40 });
+    advance(1000);
+    rerender({ sources: [loaded('A'), failed('B'), loading('C')] });
+    advance(40);
+    expect(result.current.message).toBeNull();
+
+    rerender({ sources: [loaded('A'), loaded('B'), failed('C')] });
     expect(result.current.message).toBe(LOAD_FAILED_MESSAGE);
   });
 });

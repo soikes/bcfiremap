@@ -105,9 +105,6 @@ export function isSourceStatus(value: unknown): value is SourceStatus {
     typeof value.coverage === 'string' &&
     typeof value.attribution === 'string' &&
     isOneOf(LOAD_STATUSES, value.status) &&
-    typeof value.hasData === 'boolean' &&
-    typeof value.fetching === 'boolean' &&
-    typeof value.retrying === 'boolean' &&
     typeof value.updatedAt === 'number'
   );
 }
@@ -132,6 +129,5 @@ export function parseBansResponse(body: unknown): BansResponse {
   };
 }
 
-/** Returns the sources that failed and have no data to show. */
-export const failedSources = (sources: SourceStatus[]) =>
-  sources.filter(source => source.status === 'error' && !source.hasData);
+/** Returns the sources that failed to load. */
+export const failedSources = (sources: SourceStatus[]) => sources.filter(source => source.status === 'error');

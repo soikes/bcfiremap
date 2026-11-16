@@ -48,24 +48,24 @@ describe('BanPanel title', () => {
   });
 
   it('says data is loading while a source has not answered yet', () => {
-    renderPanel([], [makeSource({ status: 'pending', hasData: false })]);
+    renderPanel([], [makeSource({ status: 'pending' })]);
     expect(screen.getByText('Loading ban data…')).toBeInTheDocument();
     expect(screen.queryByText('No fire restrictions found at this location')).not.toBeInTheDocument();
   });
 
   it('says no bans were found only in the sources that loaded when a source failed', () => {
-    renderPanel([], [ok, makeSource({ id: 'down', status: 'error', hasData: false })]);
+    renderPanel([], [ok, makeSource({ id: 'down', status: 'error' })]);
     expect(screen.getByText('No fire restrictions found in the sources that loaded')).toBeInTheDocument();
     expect(screen.queryByText('No fire restrictions found at this location')).not.toBeInTheDocument();
   });
 
   it('says data is loading while one source loads and another has failed', () => {
-    renderPanel([], [makeSource({ id: 'slow', status: 'pending', hasData: false }), makeSource({ id: 'down', status: 'error', hasData: false })]);
+    renderPanel([], [makeSource({ id: 'slow', status: 'pending' }), makeSource({ id: 'down', status: 'error' })]);
     expect(screen.getByText('Loading ban data…')).toBeInTheDocument();
   });
 
   it('counts the bans found even when every other source failed', () => {
-    renderPanel([makeBan()], [makeSource({ id: 'down', status: 'error', hasData: false })]);
+    renderPanel([makeBan()], [makeSource({ id: 'down', status: 'error' })]);
     expect(screen.getByText('1 fire restriction in effect')).toBeInTheDocument();
   });
 });
@@ -74,13 +74,13 @@ describe('BanPanel failure warning', () => {
   const warning = "⚠ Some sources couldn't be checked, so bans may be missing.";
 
   it('warns that bans may be missing when a source failed, even if bans were found', () => {
-    renderPanel([makeBan()], [ok, makeSource({ id: 'down', status: 'error', hasData: false })]);
+    renderPanel([makeBan()], [ok, makeSource({ id: 'down', status: 'error' })]);
     expect(screen.getByText('1 fire restriction in effect')).toBeInTheDocument();
     expect(screen.getByText(warning)).toBeInTheDocument();
   });
 
   it('warns when no bans were found and a source failed', () => {
-    renderPanel([], [makeSource({ status: 'error', hasData: false })]);
+    renderPanel([], [makeSource({ status: 'error' })]);
     expect(screen.getByText(warning)).toBeInTheDocument();
   });
 
@@ -89,13 +89,8 @@ describe('BanPanel failure warning', () => {
     expect(screen.queryByText(warning)).not.toBeInTheDocument();
   });
 
-  it('does not warn when a refresh failed but older data is still shown', () => {
-    renderPanel([makeBan()], [makeSource({ status: 'error', hasData: true })]);
-    expect(screen.queryByText(warning)).not.toBeInTheDocument();
-  });
-
   it('does not warn while sources are still loading', () => {
-    renderPanel([], [makeSource({ status: 'pending', hasData: false })]);
+    renderPanel([], [makeSource({ status: 'pending' })]);
     expect(screen.queryByText(warning)).not.toBeInTheDocument();
   });
 });
@@ -133,31 +128,14 @@ describe('BanPanel sources', () => {
   });
 
   it('still shows a source that failed even though it supplied no bans here', () => {
-    renderPanel([], [makeSource({ id: 'down', name: 'Down Source', status: 'error', hasData: false })]);
+    renderPanel([], [makeSource({ id: 'down', name: 'Down Source', status: 'error' })]);
     expect(screen.getByText('Down Source: unavailable')).toBeInTheDocument();
   });
 
-  it('shows stale data with a warning when a refresh failed', () => {
-    renderPanel([makeBan()], [makeSource({ name: 'BC Wildfire Service', status: 'error', hasData: true })]);
-
-    expect(screen.getByText('1 fire restriction in effect')).toBeInTheDocument();
-    expect(screen.getByText(/BC Wildfire Service: update failed, showing data from/)).toBeInTheDocument();
-  });
-
-  it('says a source with no data is being retried', () => {
-    renderPanel([], [makeSource({ name: 'BC Wildfire Service', status: 'pending', hasData: false, retrying: true })]);
-    expect(screen.getByText("BC Wildfire Service: couldn't load, retrying…")).toBeInTheDocument();
+  it('says a source that has not loaded yet is loading', () => {
+    renderPanel([], [makeSource({ name: 'BC Wildfire Service', status: 'pending' })]);
+    expect(screen.getByText('BC Wildfire Service: loading…')).toBeInTheDocument();
     expect(screen.getByText('Loading ban data…')).toBeInTheDocument();
-  });
-
-  it('says a refresh is being retried while older data is shown', () => {
-    renderPanel([makeBan()], [makeSource({ name: 'BC Wildfire Service', retrying: true })]);
-    expect(screen.getByText(/BC Wildfire Service: update failed, retrying… \(showing data from/)).toBeInTheDocument();
-  });
-
-  it('shows a source with no data as unavailable', () => {
-    renderPanel([], [makeSource({ name: 'BC Wildfire Service', status: 'error', hasData: false })]);
-    expect(screen.getByText('BC Wildfire Service: unavailable')).toBeInTheDocument();
   });
 });
 

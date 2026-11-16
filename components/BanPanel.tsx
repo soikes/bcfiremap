@@ -16,7 +16,7 @@ function panelTitle(bans: FireBan[], sources: SourceStatus[]): string | null {
   if (inEffect > 0)
     return `${inEffect} fire restriction${inEffect !== 1 ? "s" : ""} in effect`;
   if (bans.length > 0) return "No fire restrictions in effect right now";
-  if (sources.some((s) => s.status === "pending" && !s.hasData))
+  if (sources.some((s) => s.status === "pending"))
     return "Loading ban data…";
   if (failedSources(sources).length > 0)
     return "No fire restrictions found in the sources that loaded";
@@ -25,21 +25,12 @@ function panelTitle(bans: FireBan[], sources: SourceStatus[]): string | null {
 
 /** One-line status for a data source. */
 function sourceLine(source: SourceStatus): string {
+  if (source.status === "pending") return `${source.name}: loading…`;
+  if (source.status === "error") return `${source.name}: unavailable`;
   const time = new Date(source.updatedAt).toLocaleTimeString([], {
     hour: "numeric",
     minute: "2-digit",
   });
-  if (source.retrying) {
-    return source.hasData
-      ? `${source.name}: update failed, retrying… (showing data from ${time})`
-      : `${source.name}: couldn't load, retrying…`;
-  }
-  if (source.status === "error") {
-    return source.hasData
-      ? `${source.name}: update failed, showing data from ${time}`
-      : `${source.name}: unavailable`;
-  }
-  if (!source.hasData) return `${source.name}: loading…`;
   return `${source.name}: updated ${time}`;
 }
 
@@ -50,9 +41,7 @@ function relevantSources(
 ): SourceStatus[] {
   return sources.filter(
     (s) =>
-      bans.some((ban) => ban.source === s.id) ||
-      s.status !== "success" ||
-      s.retrying,
+      bans.some((ban) => ban.source === s.id) || s.status !== "success",
   );
 }
 

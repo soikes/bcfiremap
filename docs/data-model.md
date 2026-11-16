@@ -114,7 +114,7 @@ Applicability        encodes "applies here, except there"
     includeAreaKinds (overrides the exclusion) = ['provincial-park','recreation-site','wma','pmfl']
 
 Source               where the data came from
-  id, name, url, authorityId, licence, runsIn: 'browser' | 'server', format, refreshSchedule
+  id, name, url, authorityId, licence, runsIn: 'browser' | 'server', format
 ```
 
 Rule for matching a point: ban matches when some `declaredAreaId` contains the point, **and** for each exclusion area kind that also contains the point, an `includeAreaKinds` override area also contains the point.
