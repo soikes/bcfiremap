@@ -1,14 +1,15 @@
-import { afterEach, beforeEach, describe, expect, it, jest } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it, jest, mock, spyOn } from 'bun:test';
 import { makeBan } from '../test/fixtures';
 import { FireBan } from '../types/ban';
 import { Collector } from '../types/collector';
 import { createBanStore } from './banStore';
 
-const collector = (id: string, collect: () => Promise<FireBan[]>): Collector => ({
+const collector = (id: string, collect: () => Promise<FireBan[]>, refetchIntervalMs?: number): Collector => ({
   id,
   name: `Source ${id}`,
   coverage: `Coverage ${id}`,
   attribution: '',
+  refetchIntervalMs,
   collect: async () => (await collect()).map(b => ({ ...b, source: id })),
 });
 
@@ -89,7 +90,10 @@ describe('createBanStore', () => {
 
 describe('createBanStore start', () => {
   beforeEach(() => jest.useFakeTimers());
-  afterEach(() => jest.useRealTimers());
+  afterEach(() => {
+    mock.restore();
+    jest.useRealTimers();
+  });
 
   /** Lets the promises a load is waiting on settle, without moving the clock. */
   const settle = async () => {
@@ -122,18 +126,101 @@ describe('createBanStore start', () => {
     expect(store.snapshot().sources.map(source => source.status)).toEqual(['success', 'error']);
   });
 
-  it('never loads a source again once it has loaded', async () => {
+  it('loads a collector without a refetch interval only once', async () => {
     let calls = 0;
     const store = createBanStore([collector('a', async () => (calls++, []))], noRetries);
 
     await store.start();
-    await advance(7 * 24 * 60 * 60 * 1000);
+    await advance(30 * 24 * 60 * 60 * 1000);
     store.stop();
 
     expect(calls).toBe(1);
   });
 
-  it('tries a failed source again every ten minutes until it loads, then stops', async () => {
+  it('loads a collector again after its refetch interval, and not before', async () => {
+    let calls = 0;
+    const store = createBanStore([collector('a', async () => (calls++, []), 30)], noRetries);
+
+    await store.start();
+    expect(calls).toBe(1);
+    await advance(29);
+    expect(calls).toBe(1);
+    await advance(1);
+    expect(calls).toBe(2);
+    await advance(30);
+    expect(calls).toBe(3);
+    store.stop();
+  });
+
+  it('keeps the last good bans and their time when a later refresh fails', async () => {
+    let fail = false;
+    const store = createBanStore(
+      [
+        collector('a', async () => {
+          if (fail) throw new Error('down');
+          return [makeBan({ id: 'a1' })];
+        }, 30),
+      ],
+      noRetries,
+    );
+
+    await store.start();
+    const goodTime = store.snapshot().sources[0].updatedAt;
+    fail = true;
+    await advance(30);
+    store.stop();
+
+    expect(store.snapshot().bans.map(ban => ban.id)).toEqual(['a1']);
+    expect(store.snapshot().sources[0]).toMatchObject({ status: 'success', updatedAt: goodTime });
+  });
+
+  it('drops bans an upstream source no longer lists', async () => {
+    let ids = ['x1', 'x2'];
+    const store = createBanStore([collector('a', async () => ids.map(id => makeBan({ id })), 30)], noRetries);
+
+    await store.start();
+    ids = ['x1'];
+    await advance(30);
+    store.stop();
+
+    expect(store.snapshot().bans.map(ban => ban.id)).toEqual(['x1']);
+  });
+
+  it('tries a failed source again within ten minutes, however long its refetch interval is', async () => {
+    let calls = 0;
+    const weekly = 7 * 24 * 60 * 60 * 1000;
+    const store = createBanStore(
+      [
+        collector('a', async () => {
+          calls++;
+          throw new Error('down');
+        }, weekly),
+      ],
+      noRetries,
+    );
+
+    await store.start();
+    await advance(TEN_MINUTES - 1);
+    expect(calls).toBe(1);
+    await advance(1);
+    expect(calls).toBe(2);
+    store.stop();
+  });
+
+  it('does not refetch in a loop when the refetch interval exceeds the timer limit', async () => {
+    const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+    const timers = spyOn(globalThis, 'setTimeout');
+    const store = createBanStore([collector('a', async () => [], thirtyDays)], noRetries);
+
+    await store.start();
+    store.stop();
+
+    const delays = timers.mock.calls.map(([, ms]) => Number(ms));
+    expect(delays.length).toBeGreaterThan(0);
+    expect(delays.every(ms => ms <= 2 ** 31 - 1)).toBe(true);
+  });
+
+  it('tries a failed source without a refetch interval again every ten minutes until it loads, then stops', async () => {
     let calls = 0;
     const store = createBanStore(
       [

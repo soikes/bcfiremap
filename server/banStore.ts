@@ -17,6 +17,7 @@ interface Options {
 }
 
 const FAILED_RETRY_MS = 10 * 60 * 1000;
+const MAX_TIMEOUT_MS = 2 ** 31 - 1;
 
 /** Delay before retry number `attempt` (from 0), doubling from 1 s up to 30 s. */
 const backoff = (attempt: number) => Math.min(1000 * 2 ** attempt, 30000);
@@ -33,7 +34,7 @@ async function withRetry<T>(task: () => Promise<T>, retries: number, delayMs: (a
   }
 }
 
-/** Holds each source's bans in memory: loads them once on start, and tries a failed source again every 10 minutes until it loads. */
+/** Holds each source's bans in memory: loads them on start and again on each collector's refetch interval, tries a failed source again within 10 minutes, and keeps the last good bans when a refresh fails. */
 export function createBanStore(
   collectors: Collector[],
   { retries = 3, retryDelayMs = backoff }: Options = {},
@@ -42,29 +43,40 @@ export function createBanStore(
   const timers = new Set<ReturnType<typeof setTimeout>>();
   let stopped = false;
 
-  /** Runs one collector with retries and stores its bans, or marks it failed. */
-  async function load(collector: Collector): Promise<void> {
+  /** Runs one collector with retries and stores its bans, returning whether it worked; on failure keeps the last good bans, or marks it failed if it never loaded. */
+  async function load(collector: Collector): Promise<boolean> {
     try {
       const bans = validBans(await withRetry(() => collector.collect(), retries, retryDelayMs), collector.id);
       sources[collector.id] = { bans, status: 'success', updatedAt: Date.now() };
       logger.log(`[banStore] ${collector.id} loaded`, bans.length, 'bans');
+      return true;
     } catch (error) {
-      sources[collector.id] = { bans: [], status: 'error', updatedAt: 0 };
+      if (sources[collector.id]?.status !== 'success') sources[collector.id] = { bans: [], status: 'error', updatedAt: 0 };
       logger.error(`[banStore] ${collector.id} failed to load`, error);
+      return false;
     }
   }
 
-  /** Loads the collector, then tries again every 10 minutes while it keeps failing, until stopped; resolves after the first try. */
+  /** How long to wait before loading the collector again: its refetch interval after a success, at most 10 minutes after a failure, or never. */
+  function nextLoadIn(collector: Collector, succeeded: boolean): number | null {
+    const every = collector.refetchIntervalMs;
+    if (succeeded) return every ?? null;
+    return Math.min(every ?? FAILED_RETRY_MS, FAILED_RETRY_MS);
+  }
+
+  /** Loads the collector now, then again on its schedule until stopped; resolves after the first try. */
   async function run(collector: Collector): Promise<void> {
     if (stopped) return;
-    await load(collector);
-    if (stopped || sources[collector.id].status === 'success') return;
+    const succeeded = await load(collector);
+    if (stopped) return;
+    const wait = nextLoadIn(collector, succeeded);
+    if (wait === null) return;
     const timer = setTimeout(() => {
       timers.delete(timer);
       void run(collector);
-    }, FAILED_RETRY_MS);
+    }, Math.min(wait, MAX_TIMEOUT_MS));
     timers.add(timer);
-    logger.log(`[banStore] ${collector.id} trying again in`, FAILED_RETRY_MS / 1000, 's');
+    logger.log(`[banStore] ${collector.id} next load in`, Math.round(wait / 1000), 's');
   }
 
   /** Starts loading every collector; resolves once each has had its first try. */
@@ -72,7 +84,7 @@ export function createBanStore(
     return Promise.all(collectors.map(run)).then(() => undefined);
   }
 
-  /** Cancels any retries still waiting. */
+  /** Cancels every load still waiting. */
   function stop() {
     stopped = true;
     timers.forEach(clearTimeout);
