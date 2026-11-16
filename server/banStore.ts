@@ -17,7 +17,6 @@ interface Options {
 }
 
 const FAILED_RETRY_MS = 10 * 60 * 1000;
-const MAX_TIMEOUT_MS = 2 ** 31 - 1;
 
 /** Delay before retry number `attempt` (from 0), doubling from 1 s up to 30 s. */
 const backoff = (attempt: number) => Math.min(1000 * 2 ** attempt, 30000);
@@ -41,7 +40,7 @@ async function withRetry<T>(
   }
 }
 
-/** Holds each source's bans in memory, fetching them on start and again on their own schedules, keeping the last good bans when a refresh fails. */
+/** Holds each source's bans in memory: loads them once on start, and tries a failed source again every 10 minutes until it loads. */
 export function createBanStore(
   collectors: Collector[],
   { retries = 3, retryDelayMs = backoff }: Options = {},
@@ -51,45 +50,44 @@ export function createBanStore(
   const timers = new Set<ReturnType<typeof setTimeout>>();
   let stopped = false;
 
-  /** Runs one collector with retries and stores its bans, or marks it failed while keeping its previous bans. */
-  async function refresh(collector: Collector): Promise<void> {
+  /** Runs one collector with retries and stores its bans, or marks it failed. */
+  async function load(collector: Collector): Promise<void> {
     const setLive = (changes: Partial<{ fetching: boolean; retrying: boolean }>) =>
       live.set(collector.id, { fetching: false, retrying: false, ...live.get(collector.id), ...changes });
     setLive({ fetching: true, retrying: false });
-    const now = Date.now();
-    const previous = sources[collector.id];
     try {
       const bans = validBans(await withRetry(() => collector.collect(), retries, retryDelayMs, () => setLive({ retrying: true })), collector.id);
-      sources[collector.id] = { bans, status: 'success', updatedAt: now };
-      logger.log(`[banStore] ${collector.id} refreshed`, bans.length, 'bans');
+      sources[collector.id] = { bans, status: 'success', updatedAt: Date.now() };
+      logger.log(`[banStore] ${collector.id} loaded`, bans.length, 'bans');
     } catch (error) {
-      sources[collector.id] = { bans: previous?.bans ?? [], status: 'error', updatedAt: previous?.updatedAt ?? 0 };
-      logger.error(`[banStore] ${collector.id} refresh failed`, error);
+      sources[collector.id] = { bans: [], status: 'error', updatedAt: 0 };
+      logger.error(`[banStore] ${collector.id} failed to load`, error);
     }
     setLive({ fetching: false, retrying: false });
   }
 
-  /** Refreshes the collector now, then again after its refetch interval (within 10 minutes while it keeps failing), until stopped. */
+  /** Loads the collector, then tries again every 10 minutes while it keeps failing, until stopped; resolves after the first try. */
   async function run(collector: Collector): Promise<void> {
     if (stopped) return;
-    await refresh(collector);
-    if (stopped) return;
-    const every = sources[collector.id]?.status === 'success' ? collector.refetchIntervalMs : Math.min(collector.refetchIntervalMs, FAILED_RETRY_MS);
+    await load(collector);
+    if (stopped || sources[collector.id].status === 'success') return;
     const timer = setTimeout(() => {
       timers.delete(timer);
       void run(collector);
-    }, Math.min(every, MAX_TIMEOUT_MS));
+    }, FAILED_RETRY_MS);
     timers.add(timer);
-    logger.log(`[banStore] ${collector.id} next refresh in`, Math.round(every / 1000), 's');
+    logger.log(`[banStore] ${collector.id} trying again in`, FAILED_RETRY_MS / 1000, 's');
   }
 
-  /** Starts every collector's fetch-then-repeat schedule; returns a function that stops it. */
-  function start(): () => void {
-    collectors.forEach(c => void run(c));
-    return () => {
-      stopped = true;
-      timers.forEach(clearTimeout);
-    };
+  /** Starts loading every collector; resolves once each has had its first try. */
+  function start(): Promise<void> {
+    return Promise.all(collectors.map(run)).then(() => undefined);
+  }
+
+  /** Cancels any retries still waiting. */
+  function stop() {
+    stopped = true;
+    timers.forEach(clearTimeout);
   }
 
   /** Returns the bans of every collector in collector order, plus the status of each source. */
@@ -113,5 +111,5 @@ export function createBanStore(
     };
   }
 
-  return { refresh, start, snapshot };
+  return { load, start, stop, snapshot };
 }

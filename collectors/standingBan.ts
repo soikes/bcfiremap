@@ -47,7 +47,6 @@ export function standingBanCollector(
     name: municipalityName,
     coverage: `The standing open fire rules inside the ${municipalityName} boundary.`,
     attribution: `${municipalityName} fire rules; boundary contains information licensed under the Open Government Licence – British Columbia.`,
-    refetchIntervalMs: 7 * 24 * 60 * 60 * 1000,
     collect: async (signal) => {
       const [area] = await fetchAreas(
         "municipality",

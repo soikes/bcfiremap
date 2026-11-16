@@ -5,6 +5,5 @@ export interface Collector {
   name: string;
   coverage: string;
   attribution: string;
-  refetchIntervalMs: number;
   collect: (signal?: AbortSignal) => Promise<FireBan[]>;
 }

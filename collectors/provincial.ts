@@ -112,7 +112,6 @@ export const provincialCollector: Collector = {
   name: 'BC Wildfire Service',
   coverage: 'Provincial orders only. Municipal and regional district bans are not included.',
   attribution: 'Contains information licensed under the Open Government Licence – British Columbia.',
-  refetchIntervalMs: 10 * 60 * 1000,
   collect: async signal => {
     logger.log('[bcws] fetching bans');
     return parseProvincialBans(await fetchJson(PROVINCIAL_URL, signal));

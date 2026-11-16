@@ -126,6 +126,5 @@ export const exampleCollector: Collector = {
   name: 'Example data (not real)',
   coverage: 'Shapes follow the real fire zones; the bans themselves are made up, for development only.',
   attribution: '',
-  refetchIntervalMs: 60 * 60 * 1000,
   collect: async signal => buildExampleBans(await fetchJson(FIRE_ZONES_URL, signal)),
 };
