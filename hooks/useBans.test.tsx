@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Query, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test';
 import { ReactNode } from 'react';
@@ -57,6 +57,16 @@ beforeEach(() => {
 afterEach(() => {
   globalThis.fetch = realFetch;
 });
+
+/** The server query, as react-query holds it. */
+const serverQuery = (client: QueryClient) => client.getQueryCache().find({ queryKey: ['server-bans'] }) as Query;
+
+/** How long react-query waits before asking the server again, or false if it won't. */
+const serverInterval = (client: QueryClient) => {
+  const query = serverQuery(client);
+  const interval = query.observers[0].options.refetchInterval;
+  return typeof interval === 'function' ? interval(query) : interval;
+};
 
 describe('useBans browser collectors', () => {
   it('merges the bans from every collector', async () => {
@@ -146,6 +156,32 @@ describe('useBans server sources', () => {
 
     expect(result.current.sources[1]).toMatchObject({ id: 'server', hasData: false });
     await waitFor(() => expect(result.current.bans.map(ban => ban.id)).toEqual(['a1']));
+  });
+});
+
+describe('useBans server schedule', () => {
+  it('stops asking the server once its sources have settled', async () => {
+    mockServer(serverAnswers({ bans: [], sources: [makeSource({ id: 'muni' })] }));
+    const { result, client } = renderBans([]);
+    await waitFor(() => expect(result.current.sources.map(source => source.id)).toEqual(['muni']));
+
+    expect(serverInterval(client)).toBe(false);
+  });
+
+  it('keeps asking the server while one of its sources is still loading', async () => {
+    mockServer(serverAnswers({ bans: [], sources: [makeSource({ id: 'muni', status: 'pending', hasData: false, fetching: true })] }));
+    const { result, client } = renderBans([]);
+    await waitFor(() => expect(result.current.sources.map(source => source.id)).toEqual(['muni']));
+
+    expect(serverInterval(client)).toBe(5000);
+  });
+
+  it('never treats the server answer as stale, so regaining focus or the network does not ask again', async () => {
+    mockServer(serverAnswers({ bans: [], sources: [makeSource({ id: 'muni' })] }));
+    const { result, client } = renderBans([]);
+    await waitFor(() => expect(result.current.sources.map(source => source.id)).toEqual(['muni']));
+
+    expect(serverQuery(client).isStale()).toBe(false);
   });
 });
 
