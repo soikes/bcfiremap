@@ -45,3 +45,5 @@ Project notes for contributors, including the architecture and how to add a data
 ## License
 
 The code is [MIT licensed](LICENSE). The data it shows comes from the sources above and stays under their own terms.
+
+Contains information licensed under the [Open Government Licence – British Columbia](https://www2.gov.bc.ca/gov/content?id=A519A56BC2BF44E4A008B33FCF527F61). This covers the municipal boundaries from [Municipalities - Legally Defined Administrative Areas of BC](https://catalogue.data.gov.bc.ca/dataset/e3c3c580-996a-4668-8bc5-6aa7c7dc4932), a copy of which is stored in [data/boundaries](data/boundaries). The app shows the same acknowledgement next to the BC data it displays.
